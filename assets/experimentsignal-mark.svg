@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">ExperimentSignal mark</title>
+  <desc id="desc">Four randomized cells around a central effect spark.</desc>
+  <rect width="96" height="96" rx="24" fill="#173C3A"/>
+  <path d="M25 25h16v16H25zm30 0h16v16H55zM25 55h16v16H25zm30 0h16v16H55z" fill="none" stroke="#83D2B4" stroke-width="5"/>
+  <path d="M48 34v28M34 48h28" stroke="#F8F5ED" stroke-width="4" stroke-linecap="round" opacity=".72"/>
+  <path d="M48 39l3.1 5.9 6.9 1-5 4.8 1.2 6.8L48 54.3l-6.2 3.2 1.2-6.8-5-4.8 6.9-1z" fill="#F2C66D" stroke="#D95B40" stroke-width="2"/>
+</svg>
+

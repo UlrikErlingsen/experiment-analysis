@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use ExperimentSignal, please cite this software."
+title: "ExperimentSignal"
+type: software
+authors:
+  - family-names: "Erlingsen"
+    given-names: "Ulrik"
+version: 1.0.0
+date-released: 2026-07-16
+license: AGPL-3.0-or-later
+repository-code: "https://github.com/UlrikErlingsen/experiment-analysis"
+url: "https://github.com/UlrikErlingsen/experiment-analysis"
+abstract: "Local-first decision support for randomized between-subject experiments."
+

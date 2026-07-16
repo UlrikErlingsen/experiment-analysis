@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">ExperimentSignal</title>
+  <desc id="desc">Design, estimate, and decide from randomized experiment evidence.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1"><stop stop-color="#173C3A"/><stop offset="1" stop-color="#102C2A"/></linearGradient>
+  </defs>
+  <rect width="1200" height="360" rx="36" fill="url(#bg)"/>
+  <circle cx="1085" cy="-10" r="210" fill="none" stroke="#83D2B4" stroke-width="64" opacity=".11"/>
+  <circle cx="80" cy="380" r="155" fill="#F2C66D" opacity=".08"/>
+  <g transform="translate(74 74)">
+    <rect width="114" height="114" rx="29" fill="#173C3A" stroke="#83D2B4" stroke-width="3"/>
+    <path d="M28 28h20v20H28zm38 0h20v20H66zM28 66h20v20H28zm38 0h20v20H66z" fill="none" stroke="#83D2B4" stroke-width="6"/>
+    <path d="M57 42v30M42 57h30" stroke="#F8F5ED" stroke-width="4" stroke-linecap="round" opacity=".75"/>
+    <path d="M57 46l4 7.7 8.5 1.2-6.2 6 1.5 8.4-7.8-4-7.8 4 1.5-8.4-6.2-6 8.5-1.2z" fill="#F2C66D" stroke="#D95B40" stroke-width="2"/>
+  </g>
+  <text x="222" y="136" fill="#F8F5ED" font-family="Inter,Arial,sans-serif" font-size="68" font-weight="800" letter-spacing="-3">Experiment<tspan fill="#F2C66D">Signal</tspan></text>
+  <text x="226" y="192" fill="#D7E3DF" font-family="Inter,Arial,sans-serif" font-size="25">Did the treatment cause a change worth acting on?</text>
+  <g font-family="Inter,Arial,sans-serif" font-size="17" font-weight="700">
+    <rect x="226" y="233" width="158" height="42" rx="21" fill="#ffffff" opacity=".08"/><text x="251" y="260" fill="#F8F5ED">DESIGN AUDIT</text>
+    <rect x="398" y="233" width="180" height="42" rx="21" fill="#ffffff" opacity=".08"/><text x="423" y="260" fill="#F8F5ED">ROBUST EFFECTS</text>
+    <rect x="592" y="233" width="190" height="42" rx="21" fill="#ffffff" opacity=".08"/><text x="617" y="260" fill="#F8F5ED">DECISION BOUNDS</text>
+  </g>
+</svg>
+
