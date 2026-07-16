@@ -13,10 +13,11 @@ import scipy.stats as stats
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
 from statsmodels.stats.oneway import anova_oneway
-from statsmodels.stats.power import TTestIndPower
+from statsmodels.stats.power import NormalIndPower, TTestIndPower
+from statsmodels.stats.proportion import proportion_effectsize
 from statsmodels.stats.anova import anova_lm
 
-from .design import arm_labels, ordered_levels
+from .design import arm_labels, encode_binary_outcome, ordered_levels
 from .errors import DataProblem
 
 
@@ -31,6 +32,8 @@ class AnalysisConfig:
     minimum_effect: float = 0.0
     permutations: int = 4999
     seed: int = 260716
+    outcome_type: str = "continuous"
+    success_value: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,7 +61,14 @@ def _prepare(frame: pd.DataFrame, config: AnalysisConfig) -> tuple[pd.DataFrame,
     rename.update({name: f"factor_{index}" for index, name in enumerate(config.factors, start=1)})
     rename.update({name: f"covariate_{index}" for index, name in enumerate(config.covariates, start=1)})
     work = work.rename(columns=rename)
-    work["outcome"] = pd.to_numeric(work["outcome"], errors="coerce")
+    if config.outcome_type == "binary":
+        if config.success_value is None:
+            raise DataProblem("Choose which observed binary value means success.")
+        work["outcome"] = encode_binary_outcome(work["outcome"], config.success_value)
+    elif config.outcome_type == "continuous":
+        work["outcome"] = pd.to_numeric(work["outcome"], errors="coerce")
+    else:
+        raise DataProblem("Outcome type must be continuous or binary.")
     for old_name in config.covariates:
         work[rename[old_name]] = pd.to_numeric(work[rename[old_name]], errors="coerce")
     factor_names = [rename[name] for name in config.factors]
@@ -93,6 +103,39 @@ def _prediction_vector(model, arm: str, covariate_count: int) -> np.ndarray:
     return np.asarray(matrix, dtype=float)[0]
 
 
+def wilson_score_interval(successes: int, trials: int, alpha: float) -> tuple[float, float]:
+    """Wilson (1927) score interval for one proportion."""
+    if trials <= 0 or not 0 <= successes <= trials:
+        raise DataProblem("A Wilson interval needs 0 ≤ successes ≤ trials with at least one trial.")
+    z = float(stats.norm.ppf(1 - alpha / 2))
+    proportion = successes / trials
+    center = 2 * trials * proportion + z * z
+    spread = z * math.sqrt(z * z + 4 * trials * proportion * (1 - proportion))
+    denominator = 2 * (trials + z * z)
+    return (center - spread) / denominator, (center + spread) / denominator
+
+
+def newcombe_hybrid_interval(
+    successes_control: int,
+    trials_control: int,
+    successes_treatment: int,
+    trials_treatment: int,
+    alpha: float,
+) -> tuple[float, float]:
+    """Newcombe (1998) method 10 hybrid Wilson score interval for a difference in proportions.
+
+    The interval is for treatment risk minus control risk, on the probability scale.
+    """
+    p_control = successes_control / trials_control if trials_control else np.nan
+    p_treatment = successes_treatment / trials_treatment if trials_treatment else np.nan
+    low_control, high_control = wilson_score_interval(successes_control, trials_control, alpha)
+    low_treatment, high_treatment = wilson_score_interval(successes_treatment, trials_treatment, alpha)
+    difference = p_treatment - p_control
+    lower = difference - math.sqrt((p_treatment - low_treatment) ** 2 + (high_control - p_control) ** 2)
+    upper = difference + math.sqrt((high_treatment - p_treatment) ** 2 + (p_control - low_control) ** 2)
+    return float(lower), float(upper)
+
+
 def _hedges_g(outcomes: pd.Series, arms: pd.Series, left: str, right: str) -> float:
     left_values = outcomes[arms == left].dropna().to_numpy(float)
     right_values = outcomes[arms == right].dropna().to_numpy(float)
@@ -121,6 +164,8 @@ def _contrast_row(
     alpha: float,
     outcomes: pd.Series,
     arms: pd.Series,
+    outcome_type: str,
+    use_newcombe: bool = False,
 ) -> dict[str, object]:
     vector = x_right - x_left
     estimate = float(vector @ params)
@@ -129,16 +174,42 @@ def _contrast_row(
     statistic = estimate / standard_error if standard_error > 0 else np.nan
     p_value = float(2 * stats.t.sf(abs(statistic), df_resid)) if np.isfinite(statistic) else np.nan
     critical = float(stats.t.ppf(1 - alpha / 2, df_resid))
+    left_values = outcomes[arms == left].dropna().to_numpy(float)
+    right_values = outcomes[arms == right].dropna().to_numpy(float)
+    left_rate = float(np.mean(left_values)) if len(left_values) else np.nan
+    right_rate = float(np.mean(right_values)) if len(right_values) else np.nan
+    risk_ratio = right_rate / left_rate if outcome_type == "binary" and left_rate > 0 else np.nan
+    left_odds = left_rate / (1 - left_rate) if outcome_type == "binary" and 0 < left_rate < 1 else np.nan
+    right_odds = right_rate / (1 - right_rate) if outcome_type == "binary" and 0 < right_rate < 1 else np.nan
+    if use_newcombe and len(left_values) and len(right_values):
+        ci_low, ci_high = newcombe_hybrid_interval(
+            int(round(left_values.sum())),
+            len(left_values),
+            int(round(right_values.sum())),
+            len(right_values),
+            alpha,
+        )
+        interval_method = "Newcombe hybrid Wilson score"
+    else:
+        ci_low = estimate - critical * standard_error
+        ci_high = estimate + critical * standard_error
+        interval_method = "HC3 t"
     return {
         "control_arm": left,
         "treatment_arm": right,
         "contrast": f"{right} − {left}",
         "estimate": estimate,
         "standard_error_hc3": standard_error,
-        "ci_low": estimate - critical * standard_error,
-        "ci_high": estimate + critical * standard_error,
+        "ci_low": ci_low,
+        "ci_high": ci_high,
+        "interval_method": interval_method,
         "p_value_exploratory": p_value,
-        "hedges_g_descriptive": _hedges_g(outcomes, arms, left, right),
+        "effect_scale": "risk difference" if outcome_type == "binary" else "mean difference",
+        "hedges_g_descriptive": (
+            _hedges_g(outcomes, arms, left, right) if outcome_type == "continuous" else np.nan
+        ),
+        "risk_ratio_descriptive": risk_ratio,
+        "odds_ratio_descriptive": right_odds / left_odds if np.isfinite(left_odds) and left_odds > 0 else np.nan,
     }
 
 
@@ -180,6 +251,11 @@ def _permutation_test(work: pd.DataFrame, config: AnalysisConfig) -> dict[str, o
         extreme += int(abs(effect) >= abs(observed) - 1e-12)
     return {
         "sharp_null": "No unit's outcome changes under either treatment",
+        "statistic": (
+            "absolute difference in success proportions"
+            if config.outcome_type == "binary"
+            else "absolute difference in means"
+        ),
         "observed_difference": observed,
         "permutations": int(config.permutations),
         "seed": int(config.seed),
@@ -203,6 +279,7 @@ def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisR
     ordinary = smf.ols(formula, data=work).fit()
     if ordinary.df_resid <= 0 or int(ordinary.model.rank) < len(ordinary.params):
         raise DataProblem("The adjusted model is rank deficient. Reduce factors/covariates or collect more complete cells.")
+    use_newcombe = config.outcome_type == "binary" and not config.covariates
     robust = ordinary.get_robustcov_results(cov_type="HC3")
     params = np.asarray(robust.params, dtype=float)
     covariance = np.asarray(robust.cov_params(), dtype=float)
@@ -232,6 +309,8 @@ def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisR
             alpha=config.alpha,
             outcomes=work["outcome"],
             arms=work["arm"],
+            outcome_type=config.outcome_type,
+            use_newcombe=use_newcombe,
         )
         for left, right in combinations(levels, 2)
     ]
@@ -253,6 +332,8 @@ def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisR
         alpha=config.alpha,
         outcomes=work["outcome"],
         arms=work["arm"],
+        outcome_type=config.outcome_type,
+        use_newcombe=use_newcombe,
     )
     matching = contrasts[
         ((contrasts["control_arm"] == config.control_arm) & (contrasts["treatment_arm"] == config.treatment_arm))
@@ -270,13 +351,30 @@ def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisR
         warnings.append("Regression adjustment uses centered pre-treatment covariates and arm-specific slopes.")
     if len(config.factors) > 1:
         warnings.append("Factorial term tests are model-based decomposition; the declared cell contrast remains primary.")
+    if config.outcome_type == "binary":
+        if use_newcombe:
+            warnings.append(
+                "Binary contrasts without covariates are raw risk differences with Newcombe hybrid Wilson score intervals; "
+                "exploratory p-values come from the HC3 linear-probability model."
+            )
+        else:
+            warnings.append(
+                "Covariate-adjusted binary outcomes use an HC3 linear-probability model; "
+                "the primary estimate is an adjusted risk difference."
+            )
+        adjusted = group_summary["adjusted_mean"].to_numpy(float)
+        if np.any((adjusted < 0) | (adjusted > 1)):
+            warnings.append(
+                "At least one adjusted probability falls outside 0–1; treat the linear adjustment as locally descriptive."
+            )
 
     welch_p = np.nan
-    try:
-        groups = [work.loc[work["arm"] == level, "outcome"].to_numpy(float) for level in levels]
-        welch_p = float(anova_oneway(groups, use_var="unequal", welch_correction=True).pvalue)
-    except (ValueError, ZeroDivisionError, FloatingPointError):
-        warnings.append("Welch's omnibus comparison could not be estimated for these cells.")
+    if config.outcome_type == "continuous":
+        try:
+            groups = [work.loc[work["arm"] == level, "outcome"].to_numpy(float) for level in levels]
+            welch_p = float(anova_oneway(groups, use_var="unequal", welch_correction=True).pvalue)
+        except (ValueError, ZeroDivisionError, FloatingPointError):
+            warnings.append("Welch's omnibus comparison could not be estimated for these cells.")
 
     return AnalysisResult(
         config=config,
@@ -293,6 +391,14 @@ def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisR
             "adjusted_r_squared_descriptive": float(ordinary.rsquared_adj),
             "welch_omnibus_p_exploratory": welch_p,
             "covariance": "HC3",
+            "outcome_type": config.outcome_type,
+            "effect_measure": (
+                ("risk difference" if use_newcombe else "adjusted risk difference")
+                if config.outcome_type == "binary"
+                else "adjusted mean difference"
+            ),
+            "interval_method": str(primary["interval_method"]),
+            "success_value": config.success_value if config.outcome_type == "binary" else None,
         },
         primary=primary,
         permutation=_permutation_test(work, config),
@@ -336,6 +442,54 @@ def plan_two_arm_sample(
     n_treatment_assign = int(math.ceil(n_treatment_complete * inflation))
     return {
         "standardized_effect": float(effect_size),
+        "complete_control": n_control_complete,
+        "complete_treatment": n_treatment_complete,
+        "complete_total": n_control_complete + n_treatment_complete,
+        "assign_control": n_control_assign,
+        "assign_treatment": n_treatment_assign,
+        "assign_total": n_control_assign + n_treatment_assign,
+    }
+
+
+def plan_two_arm_binary_sample(
+    *,
+    control_rate: float,
+    minimum_lift: float,
+    alpha: float,
+    power: float,
+    allocation_ratio: float = 1.0,
+    expected_attrition: float = 0.0,
+) -> dict[str, float | int]:
+    """Approximate fixed-sample planning for a two-sided independent-proportions comparison."""
+    treatment_rate = control_rate + minimum_lift
+    if not 0 < control_rate < 1 or not 0 < treatment_rate < 1:
+        raise DataProblem("Control rate and control rate plus minimum lift must both lie strictly between 0 and 1.")
+    if not 0 < alpha < 0.5 or not 0.5 < power < 1:
+        raise DataProblem("Use alpha between 0 and 0.5 and power between 0.5 and 1.")
+    if allocation_ratio <= 0 or not 0 <= expected_attrition < 0.8:
+        raise DataProblem("Allocation ratio must be positive and attrition must be between 0% and 80%.")
+    effect_size = abs(float(proportion_effectsize(treatment_rate, control_rate)))
+    n_control_complete = int(
+        math.ceil(
+            NormalIndPower().solve_power(
+                effect_size=effect_size,
+                nobs1=None,
+                alpha=alpha,
+                power=power,
+                ratio=allocation_ratio,
+                alternative="two-sided",
+            )
+        )
+    )
+    n_treatment_complete = int(math.ceil(n_control_complete * allocation_ratio))
+    inflation = 1 / (1 - expected_attrition)
+    n_control_assign = int(math.ceil(n_control_complete * inflation))
+    n_treatment_assign = int(math.ceil(n_treatment_complete * inflation))
+    return {
+        "control_rate": float(control_rate),
+        "treatment_rate": float(treatment_rate),
+        "minimum_lift": float(minimum_lift),
+        "arcsine_effect": effect_size,
         "complete_control": n_control_complete,
         "complete_treatment": n_treatment_complete,
         "complete_total": n_control_complete + n_treatment_complete,

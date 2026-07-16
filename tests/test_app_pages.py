@@ -29,6 +29,34 @@ def test_every_page_renders_with_fictional_demo() -> None:
         assert not at.exception, page
 
 
+def test_binary_demo_flow_uses_newcombe_and_reads_an_honest_uncertain_decision() -> None:
+    at = app()
+    at.button(key="load_binary_demo").click().run()
+    at.radio[0].set_value("2 · Data & randomization audit").run()
+    at.button(key="run_analysis").click().run()
+    assert not at.exception
+    analysis = at.session_state["analysis"]
+    assert analysis.primary["interval_method"] == "Newcombe hybrid Wilson score"
+    # The seeded demo is deliberately instructive: evidence of a lift, but the 2 pp practical bound is not cleared.
+    assert at.session_state["decision"]["status"] == "UNCERTAIN"
+    at.radio[0].set_value("3 · Effects & uncertainty").run()
+    assert not at.exception
+    at.radio[0].set_value("4 · Decision & export").run()
+    assert not at.exception
+
+
+def test_contract_template_selector_prefills_binary_communication_test() -> None:
+    at = app()
+    at.button(key="load_binary_demo").click().run()
+    at.radio[0].set_value("1 · Design contract").run()
+    at.selectbox(key="contract_template").set_value("Communication test").run()
+    at.button(key="apply_template").click().run()
+    assert not at.exception
+    contract = at.session_state["contract"]
+    assert contract["outcome_type"] == "binary"
+    assert "recall" in str(contract["question"])
+
+
 def test_demo_analysis_flow_produces_conservative_evidence_pack() -> None:
     at = app()
     at.button(key="load_demo").click().run()

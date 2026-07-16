@@ -44,6 +44,94 @@ def demo_dataframe(n_per_cell: int = 120) -> pd.DataFrame:
     return frame
 
 
+BINARY_TRUE_CONTROL_RATE = 0.30
+BINARY_TRUE_TREATMENT_RATE = 0.36
+
+
+def binary_demo_dataframe(n_per_arm: int = 400) -> pd.DataFrame:
+    """Create a seeded fictional two-arm message test with a binary recall outcome.
+
+    True success probabilities are 0.30 (control) and 0.36 (treatment), a 6-percentage-point lift.
+    """
+    rng = np.random.default_rng(SEED)
+    arms = np.array(["Standard message"] * n_per_arm + ["Benefit-led message"] * n_per_arm, dtype=object)
+    arms = arms[rng.permutation(len(arms))]
+    rates = np.where(arms == "Benefit-led message", BINARY_TRUE_TREATMENT_RATE, BINARY_TRUE_CONTROL_RATE)
+    recalled = np.where(rng.random(len(arms)) < rates, "recalled", "not_recalled")
+    return pd.DataFrame(
+        {
+            "unit_id": [f"MSG-{index:04d}" for index in range(1, len(arms) + 1)],
+            "message_variant": arms,
+            "recalled_key_claim": recalled,
+            "exposure_channel": rng.choice(["Email", "In-app"], len(arms)),
+        }
+    )
+
+
+def binary_demo_defaults() -> dict[str, object]:
+    """Return the explicit analysis plan attached to the fictional binary message test."""
+    return {
+        "unit": "unit_id",
+        "outcome": "recalled_key_claim",
+        "factors": ["message_variant"],
+        "covariates": [],
+        "control_arm": "message_variant=Standard message",
+        "treatment_arm": "message_variant=Benefit-led message",
+        "minimum_effect": 0.02,
+        "outcome_type": "binary",
+        "success_value": "recalled",
+        "randomized_confirmed": True,
+        "outcome_prespecified": True,
+        "treatment_precedes_outcome": True,
+        "stopping_prespecified": True,
+        "question": "Does the benefit-led message lift key-claim recall enough to justify switching?",
+        "population": "Eligible recipients in the fictional campaign window",
+        "assignment_method": "Equal-probability individual random assignment to two message variants",
+        "analysis_population": "All assigned units with an observed recall outcome",
+        "stopping_rule": "Fixed sample: 400 assignments per arm",
+        "guardrail": "Unsubscribe rate should not increase materially",
+    }
+
+
+def contract_templates() -> dict[str, dict[str, object]]:
+    """Contract-field prefills only. Templates never fabricate data, columns, or thresholds."""
+    return {
+        "Communication test": {
+            "outcome_type": "binary",
+            "question": "Does the new message lift recall of the key claim enough to justify switching?",
+            "population": "Eligible recipients in the declared campaign window",
+            "assignment_method": "Equal-probability individual random assignment to message variants",
+            "analysis_population": "All assigned units with an observed recall outcome",
+            "stopping_rule": "Fixed sample declared before launch",
+            "guardrail": "Opt-outs or complaints should not increase materially",
+            "note": "Declare which recorded value means the claim was recalled or recognized.",
+        },
+        "Price test": {
+            "outcome_type": "binary",
+            "question": "Does the tested price change purchase conversion enough to justify adopting it?",
+            "population": "Eligible visitors or accounts in the declared selling window",
+            "assignment_method": "Equal-probability individual random assignment to price conditions",
+            "analysis_population": "All assigned units with an observed purchase outcome",
+            "stopping_rule": "Fixed sample declared before launch",
+            "guardrail": "Revenue per visitor and refund rate should be checked separately",
+            "note": (
+                "This tests one purchase outcome at declared price points. Deeper pricing questions—"
+                "price ladders, willingness to pay, elasticity—belong to PriceSignal, the pricing sibling."
+            ),
+        },
+        "Feature rollout": {
+            "outcome_type": "continuous",
+            "question": "Does the new feature improve the primary usage or satisfaction score enough to roll out?",
+            "population": "Eligible active users in the declared rollout window",
+            "assignment_method": "Equal-probability individual random assignment to feature on/off",
+            "analysis_population": "All assigned units with an observed primary outcome",
+            "stopping_rule": "Fixed sample declared before launch",
+            "guardrail": "Support contacts or task time should not worsen materially",
+            "note": "Use a numeric outcome measured the same way in every arm.",
+        },
+    }
+
+
 def starter_template() -> pd.DataFrame:
     """Return a small data-role template; values are placeholders, not an analyzable study."""
     return pd.DataFrame(

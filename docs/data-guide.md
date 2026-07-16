@@ -2,7 +2,7 @@
 
 ## One row per randomized unit
 
-The analysis unit should match the randomization unit. If a person was randomized, use one row per person. If a store, market, household, team, session, or device was randomized, version 1.0 is not automatically appropriate: outcomes within those units may be dependent and cluster-aware inference is required.
+The analysis unit should match the randomization unit. If a person was randomized, use one row per person. If a store, market, household, team, session, or device was randomized, version 1.1 is not automatically appropriate: outcomes within those units may be dependent and cluster-aware inference is required.
 
 Choose an identifier only for duplicate detection. The app excludes row-level identifiers from its evidence pack.
 
@@ -27,7 +27,9 @@ Outcome missingness can destroy the comparability created by random assignment. 
 
 ## Outcome
 
-Version 1.0 treats the selected primary outcome as continuous and fits a linear mean model. A bounded rating may be defensible as approximately interval-scaled, but the assumption should be stated. Binary conversion, counts, ordered categories, durations, and time-to-event outcomes need different outcome models and uncertainty calculations.
+Version 1.1 accepts either a continuous primary outcome or a declared two-level binary outcome. For binary data, keep the original labels—such as `clicked`/`not_clicked`, `1`/`0`, or `recognized`/`not_recognized`—and declare which value is success. Do not collapse a richer outcome into binary form merely to obtain a favorable result.
+
+A bounded rating may be defensible as approximately interval-scaled, but the assumption should be stated. Counts, ordered categories, durations, and time-to-event outcomes still need different outcome models and uncertainty calculations.
 
 Use one primary outcome for the decision. Guardrails and secondary outcomes should be declared and analyzed with a multiplicity plan outside this release.
 
@@ -48,4 +50,3 @@ Do not control for mediators, treatment receipt, post-treatment satisfaction, do
 - JSON: an array of row objects or an object with a `data` array.
 
 Uploads are limited to 50 MB, 250,000 rows, and 500 columns. Remove direct identifiers, contact data, free text, precise locations, and unnecessary sensitive attributes before upload.
-

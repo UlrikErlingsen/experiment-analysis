@@ -21,10 +21,22 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from experimentsignal import __version__
-from experimentsignal.analysis import AnalysisConfig, analyze_experiment, plan_two_arm_sample
+from experimentsignal.analysis import (
+    AnalysisConfig,
+    analyze_experiment,
+    plan_two_arm_binary_sample,
+    plan_two_arm_sample,
+)
 from experimentsignal.design import arm_labels, audit_experiment, classify_decision, ordered_levels
 from experimentsignal.errors import DataProblem, friendly_message
-from experimentsignal.examples import demo_dataframe, demo_defaults, starter_template
+from experimentsignal.examples import (
+    binary_demo_dataframe,
+    binary_demo_defaults,
+    contract_templates,
+    demo_dataframe,
+    demo_defaults,
+    starter_template,
+)
 from experimentsignal.io import (
     build_evidence_pack,
     dataframe_to_xlsx,
@@ -218,6 +230,19 @@ def load_demo() -> None:
     reset_results()
 
 
+def load_binary_demo() -> None:
+    demo = binary_demo_dataframe()
+    st.session_state["data"] = demo
+    st.session_state["source"] = {
+        "source_filename": "experimentsignal-fictional-binary-message-demo.csv",
+        "source_sheet": "",
+        "source_sha256": hashlib.sha256(demo.to_csv(index=False).encode("utf-8")).hexdigest(),
+        "source_type": "deterministic synthetic demonstration",
+    }
+    st.session_state["contract"] = binary_demo_defaults()
+    reset_results()
+
+
 def masthead() -> None:
     mark = f'<img class="xs-mark" src="{MARK_URI}" alt="">' if MARK_URI else ""
     st.markdown(
@@ -234,8 +259,8 @@ def masthead() -> None:
 
 def footer() -> None:
     st.markdown(
-        f'<div class="xs-footer">ExperimentSignal {__version__} <span>◆</span> local-first <span>◆</span> '
-        "open methods <span>◆</span> accountable human decisions</div>",
+        f'<div class="xs-footer">ExperimentSignal v{__version__} <span>◆</span> randomized contrasts do not '
+        "manufacture randomization <span>◆</span> Part of the Signal suite <span>◆</span> AGPL-3.0-or-later</div>",
         unsafe_allow_html=True,
     )
 
@@ -253,7 +278,8 @@ def render_welcome() -> None:
           <p>Turn a randomized between-subject experiment into an auditable decision record: declare the contrast,
           inspect assignment and observation, estimate effects with robust uncertainty, and compare the interval with
           a business threshold written before the result.</p>
-          <div class="xs-pills"><span class="xs-pill">1–3 treatment factors</span><span class="xs-pill">HC3 intervals</span>
+          <div class="xs-pills"><span class="xs-pill">continuous & binary outcomes</span>
+          <span class="xs-pill">1–3 treatment factors</span><span class="xs-pill">HC3 intervals</span>
           <span class="xs-pill">Holm multiplicity</span><span class="xs-pill">factorial decomposition</span>
           <span class="xs-pill">a priori power</span><span class="xs-pill">privacy-minimized exports</span></div>
         </section>
@@ -276,10 +302,10 @@ def render_welcome() -> None:
     )
     st.markdown("### A deliberately bounded release")
     st.write(
-        "ExperimentSignal 1.0 analyzes continuous outcomes from individually randomized, between-subject designs. "
+        "ExperimentSignal analyzes continuous and binary outcomes from individually randomized, between-subject designs. "
         "It supports one-way and factorial cells, optional numeric pre-treatment adjustment, robust cell contrasts, "
-        "and a simple two-arm power planner. It does not currently claim support for clustered assignment, crossover "
-        "or repeated-measures designs, binary/count/survival outcomes, adaptive stopping, noncompliance estimands, "
+        "and two-arm power planning. It does not currently claim support for clustered assignment, crossover "
+        "or repeated-measures designs, count/survival outcomes, adaptive stopping, noncompliance estimands, "
         "or observational causal identification."
     )
     if "data" not in st.session_state:
@@ -293,9 +319,35 @@ def render_contract() -> None:
         st.info("Load or upload experiment data first.")
         return
     data: pd.DataFrame = st.session_state["data"]
+
+    templates = contract_templates()
+    with st.expander("Start from a template · optional"):
+        template_name = st.selectbox(
+            "Template",
+            list(templates),
+            key="contract_template",
+            help="Prefills the claim wording and outcome type. It never invents data, columns, or thresholds.",
+        )
+        selected_template = dict(templates[template_name])
+        st.caption(str(selected_template.pop("note", "")))
+        if st.button("Apply template", key="apply_template"):
+            merged = dict(st.session_state.get("contract", {}))
+            merged.update(selected_template)
+            st.session_state["contract"] = merged
+            reset_results()
+            st.success(f"Applied the “{template_name}” template. Review every field before saving.")
+
     current = dict(st.session_state.get("contract", {}))
     st.markdown("#### Data roles")
+    outcome_type = st.selectbox(
+        "Primary outcome type",
+        ["continuous", "binary"],
+        index=0 if current.get("outcome_type", "continuous") == "continuous" else 1,
+        help="Binary outcomes can be encoded with any two labels; you will declare which label means success.",
+    )
     numeric_columns = [column for column in data.columns if pd.to_numeric(data[column], errors="coerce").notna().sum() >= 2]
+    binary_columns = [column for column in data.columns if data[column].dropna().astype(str).nunique() == 2]
+    outcome_candidates = numeric_columns if outcome_type == "continuous" else binary_columns
     factor_candidates = [
         column for column in data.columns if 2 <= data[column].dropna().astype(str).nunique() <= 8
     ]
@@ -309,14 +361,23 @@ def render_contract() -> None:
             index=select_index(unit_options, unit_value),
             help="Used to detect repeated rows for the same randomized unit.",
         )
-        if not numeric_columns:
-            st.error("No numeric outcome candidate was detected.")
+        if not outcome_candidates:
+            st.error(f"No {outcome_type} outcome candidate was detected.")
             return
         outcome = st.selectbox(
-            "Primary continuous outcome",
-            numeric_columns,
-            index=select_index(numeric_columns, current.get("outcome")),
+            "Primary outcome",
+            outcome_candidates,
+            index=select_index(outcome_candidates, current.get("outcome")),
         )
+        success_value = None
+        if outcome_type == "binary":
+            success_levels = ordered_levels(data[outcome].dropna().astype(str))
+            success_value = st.selectbox(
+                "Value that means success",
+                success_levels,
+                index=select_index(success_levels, current.get("success_value"), fallback=len(success_levels) - 1),
+                help="The other observed value is encoded as 0; this value is encoded as 1.",
+            )
     with col2:
         factors_default = [item for item in current.get("factors", []) if item in factor_candidates]
         factors = st.multiselect(
@@ -360,13 +421,24 @@ def render_contract() -> None:
             index=select_index(treatment_options, current.get("treatment_arm")),
         )
     with col3:
-        minimum_effect = st.number_input(
-            "Minimum worthwhile effect",
-            min_value=0.0,
-            value=float(current.get("minimum_effect", 0.0)),
-            step=0.10,
-            help="In outcome units. Set from economics, customer value, or policy—not from the observed estimate.",
-        )
+        if outcome_type == "binary":
+            minimum_effect_pp = st.number_input(
+                "Minimum worthwhile lift · percentage points",
+                min_value=0.0,
+                max_value=100.0,
+                value=min(100 * float(current.get("minimum_effect", 0.0)), 100.0),
+                step=0.5,
+                help="Enter 3 for a 3-percentage-point lift. Set it before reading the estimate.",
+            )
+            minimum_effect = minimum_effect_pp / 100
+        else:
+            minimum_effect = st.number_input(
+                "Minimum worthwhile effect",
+                min_value=0.0,
+                value=float(current.get("minimum_effect", 0.0)),
+                step=0.10,
+                help="In outcome units. Set from economics, customer value, or policy—not from the observed estimate.",
+            )
 
     st.markdown("#### Claim and protocol")
     question = st.text_input("Decision question", value=str(current.get("question", "")))
@@ -414,6 +486,8 @@ def render_contract() -> None:
             "control_arm": control,
             "treatment_arm": treatment,
             "minimum_effect": float(minimum_effect),
+            "outcome_type": outcome_type,
+            "success_value": success_value,
             "randomized_confirmed": randomized_confirmed,
             "outcome_prespecified": outcome_prespecified,
             "treatment_precedes_outcome": treatment_precedes_outcome,
@@ -448,6 +522,8 @@ def render_audit() -> None:
             outcome=str(contract["outcome"]),
             factors=list(contract["factors"]),
             covariates=list(contract.get("covariates", [])),
+            outcome_type=str(contract.get("outcome_type", "continuous")),
+            success_value=contract.get("success_value"),
         )
     except Exception as exc:
         show_error(exc)
@@ -502,6 +578,12 @@ def render_audit() -> None:
                 alpha=1 - float(confidence),
                 minimum_effect=float(contract.get("minimum_effect", 0.0)),
                 permutations=int(permutations),
+                outcome_type=str(contract.get("outcome_type", "continuous")),
+                success_value=(
+                    str(contract.get("success_value"))
+                    if contract.get("outcome_type", "continuous") == "binary"
+                    else None
+                ),
             )
             analysis = analyze_experiment(data, config)
             decision = classify_decision(
@@ -564,17 +646,47 @@ def render_effects() -> None:
     analysis = st.session_state["analysis"]
     contract = st.session_state["contract"]
     primary = analysis.primary
+    binary = analysis.config.outcome_type == "binary"
+    adjusted = bool(analysis.config.covariates)
+    effect_label = ("Adjusted lift" if adjusted else "Estimated lift") if binary else "Adjusted effect"
+    effect_value = f"{100 * float(primary['estimate']):.2f} pp" if binary else f"{float(primary['estimate']):.3f}"
+    interval_value = (
+        f"[{100 * float(primary['ci_low']):.2f}, {100 * float(primary['ci_high']):.2f}] pp"
+        if binary
+        else f"[{float(primary['ci_low']):.3f}, {float(primary['ci_high']):.3f}]"
+    )
+    threshold_value = (
+        f"{100 * float(contract.get('minimum_effect', 0)):.2f} pp"
+        if binary
+        else f"{float(contract.get('minimum_effect', 0)):.3f}"
+    )
     columns = st.columns(4)
-    columns[0].metric("Adjusted effect", f"{float(primary['estimate']):.3f}")
-    columns[1].metric("Interval", f"[{float(primary['ci_low']):.3f}, {float(primary['ci_high']):.3f}]")
-    columns[2].metric("Minimum worthwhile", f"{float(contract.get('minimum_effect', 0)):.3f}")
-    columns[3].metric("Hedges' g", f"{float(primary['hedges_g_descriptive']):.2f}")
+    columns[0].metric(effect_label, effect_value)
+    columns[1].metric("Interval", interval_value)
+    columns[2].metric("Minimum worthwhile", threshold_value)
+    if binary:
+        rr = float(primary["risk_ratio_descriptive"])
+        columns[3].metric("Risk ratio · raw", f"{rr:.2f}" if pd.notna(rr) else "not estimable")
+    else:
+        columns[3].metric("Hedges' g", f"{float(primary['hedges_g_descriptive']):.2f}")
+    estimand = (
+        ("adjusted success probability (risk)" if adjusted else "success probability (risk)")
+        if binary
+        else "mean outcome"
+    )
+    adjustment_text = (
+        "standardized to the sample-average declared baseline covariates"
+        if adjusted
+        else "with no covariate adjustment declared"
+    )
+    estimate_text = effect_value if binary else f"{float(primary['estimate']):.3f} outcome units"
+    interval_method = str(primary.get("interval_method", "HC3 t"))
     st.markdown(
         f"""
-        <div class="xs-note"><strong>Primary estimand:</strong> mean outcome under
-        <code>{primary['treatment_arm']}</code> minus mean outcome under <code>{primary['control_arm']}</code>,
-        standardized to the sample-average declared baseline covariates. The estimate is
-        <strong>{float(primary['estimate']):.3f}</strong> outcome units.</div>
+        <div class="xs-note"><strong>Primary estimand:</strong> {estimand} under
+        <code>{primary['treatment_arm']}</code> minus {estimand} under <code>{primary['control_arm']}</code>,
+        {adjustment_text}. The estimate is <strong>{estimate_text}</strong> with a
+        {interval_method} interval.</div>
         """,
         unsafe_allow_html=True,
     )
@@ -585,7 +697,10 @@ def render_effects() -> None:
     full_width(st.dataframe, display_groups.round(3), hide_index=True)
     st.markdown("#### Pairwise contrast family")
     full_width(st.plotly_chart, contrast_figure(analysis.contrasts, float(contract.get("minimum_effect", 0))))
-    st.caption("Gold band: ± the declared minimum worthwhile effect. Intervals are HC3 robust; no multiplicity adjustment is applied to interval width.")
+    st.caption(
+        f"Gold band: ± the declared minimum worthwhile effect. Intervals are {interval_method}; "
+        "no multiplicity adjustment is applied to interval width."
+    )
 
     with st.expander("Exploratory tests, factorial decomposition, and model diagnostics"):
         contrast_columns = [
@@ -596,6 +711,8 @@ def render_effects() -> None:
             "p_value_exploratory",
             "p_value_holm",
             "hedges_g_descriptive",
+            "risk_ratio_descriptive",
+            "odds_ratio_descriptive",
         ]
         full_width(st.dataframe, analysis.contrasts[contrast_columns].round(4), hide_index=True)
         st.caption("Holm adjustment controls familywise error across the displayed pairwise p-value family. It is not the decision threshold.")
@@ -683,14 +800,24 @@ def render_decision() -> None:
 def render_power() -> None:
     st.title("Power planner")
     st.caption("Prospective planning only: choose the smallest effect worth detecting before collecting or inspecting outcomes.")
+    outcome_type = st.selectbox("Planning outcome", ["continuous", "binary"], key="power_outcome_type")
     st.warning(
-        "This approximation is for a fixed, two-sided, two-arm independent-means design with a continuous outcome. "
+        "This approximation is for a fixed, two-sided, two-arm individually randomized design. "
         "It does not account for clustering, repeated measures, covariate gain, noncompliance, sequential looks, or multiple outcomes."
     )
     col1, col2, col3 = st.columns(3)
     with col1:
-        minimum = st.number_input("Minimum worthwhile raw effect", min_value=0.001, value=0.40, step=0.05)
-        sd = st.number_input("Expected outcome SD", min_value=0.001, value=1.50, step=0.10)
+        if outcome_type == "continuous":
+            minimum = st.number_input("Minimum worthwhile raw effect", min_value=0.001, value=0.40, step=0.05)
+            sd = st.number_input("Expected outcome SD", min_value=0.001, value=1.50, step=0.10)
+        else:
+            control_rate = st.number_input(
+                "Expected control success rate · %", min_value=0.1, max_value=99.9, value=12.0, step=0.5
+            ) / 100
+            minimum_lift = st.number_input(
+                "Minimum worthwhile lift · percentage points", min_value=0.1, max_value=99.0, value=2.5, step=0.5,
+                help="Enter 2.5 for a 2.5-percentage-point lift.",
+            ) / 100
     with col2:
         alpha = st.select_slider("Two-sided alpha", options=[0.01, 0.025, 0.05, 0.10], value=0.05)
         power = st.select_slider("Target power", options=[0.70, 0.80, 0.85, 0.90, 0.95], value=0.80)
@@ -699,16 +826,22 @@ def render_power() -> None:
         attrition = st.slider("Expected outcome loss", min_value=0, max_value=60, value=10, step=1)
     if st.button("Plan sample", type="primary", key="plan_sample"):
         try:
-            plan = plan_two_arm_sample(
-                minimum_effect=float(minimum),
-                outcome_sd=float(sd),
-                alpha=float(alpha),
-                power=float(power),
-                allocation_ratio=float(ratio),
-                expected_attrition=float(attrition) / 100,
-            )
+            if outcome_type == "continuous":
+                plan = plan_two_arm_sample(
+                    minimum_effect=float(minimum), outcome_sd=float(sd), alpha=float(alpha), power=float(power),
+                    allocation_ratio=float(ratio), expected_attrition=float(attrition) / 100,
+                )
+                first_label = "Standardized effect"
+                first_value = f"{float(plan['standardized_effect']):.3f}"
+            else:
+                plan = plan_two_arm_binary_sample(
+                    control_rate=float(control_rate), minimum_lift=float(minimum_lift), alpha=float(alpha), power=float(power),
+                    allocation_ratio=float(ratio), expected_attrition=float(attrition) / 100,
+                )
+                first_label = "Planned rates"
+                first_value = f"{100 * float(plan['control_rate']):.1f}% → {100 * float(plan['treatment_rate']):.1f}%"
             columns = st.columns(4)
-            columns[0].metric("Standardized effect", f"{float(plan['standardized_effect']):.3f}")
+            columns[0].metric(first_label, first_value)
             columns[1].metric("Complete total", f"{int(plan['complete_total']):,}")
             columns[2].metric("Assign total", f"{int(plan['assign_total']):,}")
             columns[3].metric("Control / treatment", f"{int(plan['assign_control'])} / {int(plan['assign_treatment'])}")
@@ -728,10 +861,15 @@ def render_methods() -> None:
         ### Estimand before test statistic
 
         The primary output is the declared treatment-cell mean minus the declared control-cell mean for the primary
-        continuous outcome. With baseline covariates, ExperimentSignal centers those pre-treatment measures and fits
+        continuous mean or binary risk outcome. With baseline covariates, ExperimentSignal centers those pre-treatment measures and fits
         cell-specific slopes; the displayed adjusted means are standardized to the sample-average covariate values.
         HC3 covariance supplies the interval. This regression adjustment can improve precision, but cannot repair
         non-random assignment, post-treatment adjustment, measurement failure, interference, or selective attrition.
+
+        For a binary outcome without declared covariates, the primary risk difference gets a Newcombe (1998)
+        hybrid Wilson score interval instead of the model interval. With declared covariates, the covariate-adjusted
+        risk difference comes from an HC3 linear probability model, and the app flags any adjusted probability
+        outside 0–1 because a linear model can extrapolate beyond the outcome's range.
 
         ### Multiple cells and factorial designs
 
@@ -764,10 +902,10 @@ def render_methods() -> None:
         significance statement, so the contract page refuses to save it and a zero threshold reads as
         `DIRECTIONAL ONLY` rather than a decision. No status is triggered by p < .05.
 
-        ### Explicit non-support in version 1.0
+        ### Explicit non-support in version 1.1
 
         Do not use this release as if it handled clustered or market-level assignment, repeated observations, paired or
-        crossover studies, blocking/stratification-specific randomization inference, binary/count/survival outcomes,
+        crossover studies, blocking/stratification-specific randomization inference, count/ordered/survival outcomes,
         instrumental variables, treatment noncompliance, network interference, adaptive experiments, sequential stopping,
         missing-outcome correction, heterogeneous-treatment-effect discovery, or observational causal identification.
         Those designs need estimators and uncertainty calculations matched to their assignment and outcome structure.
@@ -780,6 +918,8 @@ def render_methods() -> None:
         - MacKinnon, J. G., & White, H. (1985). *Some heteroskedasticity-consistent covariance matrix estimators with improved finite sample properties*. Journal of Econometrics, 29, 305–325.
         - Long, J. S., & Ervin, L. H. (2000). *Using heteroscedasticity consistent standard errors in the linear regression model*. The American Statistician, 54(3), 217–224.
         - Holm, S. (1979). *A Simple Sequentially Rejective Multiple Test Procedure*. Scandinavian Journal of Statistics, 6, 65–70.
+        - Wilson, E. B. (1927). *Probable inference, the law of succession, and statistical inference*. Journal of the American Statistical Association, 22, 209–212.
+        - Newcombe, R. G. (1998). *Interval estimation for the difference between independent proportions: comparison of eleven methods*. Statistics in Medicine, 17(8), 873–890.
         - Lin, W. (2013). *Agnostic notes on regression adjustments to experimental data*. Annals of Applied Statistics, 7, 295–318.
         - Wasserstein, R. L., & Lazar, N. A. (2016). *The ASA Statement on p-Values: Context, Process, and Purpose*. The American Statistician, 70, 129–133.
         - Lakens, D. (2013). *Calculating and reporting effect sizes to facilitate cumulative science*. Frontiers in Psychology, 4, 863.
@@ -802,6 +942,8 @@ with st.sidebar:
     )
     if st.button("Load fictional 2×2 demo", key="load_demo"):
         load_demo()
+    if st.button("Load fictional binary message demo", key="load_binary_demo"):
+        load_binary_demo()
     upload = st.file_uploader("Upload experiment data", type=["csv", "xlsx", "json"])
     if upload is not None:
         raw = upload.getvalue()

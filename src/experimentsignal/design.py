@@ -32,6 +32,20 @@ def ordered_levels(series: pd.Series) -> list[str]:
     return sorted(series.dropna().astype(str).unique().tolist(), key=str.casefold)
 
 
+def encode_binary_outcome(series: pd.Series, success_value: object) -> pd.Series:
+    """Encode a declared two-level outcome as 1=success and 0=other, retaining missing rows."""
+    levels = ordered_levels(series.dropna().astype(str))
+    if len(levels) != 2:
+        raise DataProblem("A binary outcome must contain exactly two observed non-missing values.")
+    success = str(success_value)
+    if success not in levels:
+        raise DataProblem("The declared success value is not present in the observed binary outcome.")
+    encoded = pd.Series(np.nan, index=series.index, dtype=float)
+    present = series.notna()
+    encoded.loc[present] = (series.loc[present].astype(str) == success).astype(float)
+    return encoded
+
+
 @dataclass(frozen=True)
 class AuditResult:
     summary: dict[str, object]
@@ -59,6 +73,8 @@ def audit_experiment(
     outcome: str,
     factors: list[str] | tuple[str, ...],
     covariates: list[str] | tuple[str, ...] = (),
+    outcome_type: str = "continuous",
+    success_value: object | None = None,
 ) -> AuditResult:
     """Audit uniqueness, observed outcomes, cell sizes, and baseline balance."""
     if frame.empty:
@@ -67,9 +83,16 @@ def audit_experiment(
     missing = [column for column in required if column not in frame.columns]
     if missing:
         raise DataProblem("These selected columns are missing: " + ", ".join(missing))
-    numeric_outcome = pd.to_numeric(frame[outcome], errors="coerce")
-    if numeric_outcome.notna().sum() == 0:
-        raise DataProblem("The primary outcome must be numeric.")
+    if outcome_type == "binary":
+        if success_value is None:
+            raise DataProblem("Choose which observed binary value means success.")
+        observed_outcome = encode_binary_outcome(frame[outcome], success_value)
+    elif outcome_type == "continuous":
+        observed_outcome = pd.to_numeric(frame[outcome], errors="coerce")
+        if observed_outcome.notna().sum() == 0:
+            raise DataProblem("The primary continuous outcome must be numeric.")
+    else:
+        raise DataProblem("Outcome type must be continuous or binary.")
 
     factor_complete = frame[list(factors)].notna().all(axis=1)
     eligible = frame.loc[factor_complete].copy()
@@ -85,7 +108,7 @@ def audit_experiment(
         .sort_values("arm")
         .reset_index(drop=True)
     )
-    observed = pd.to_numeric(eligible[outcome], errors="coerce").notna()
+    observed = observed_outcome.loc[eligible.index].notna()
     outcome_observation = (
         eligible.assign(__observed__=observed)
         .groupby("__arm__", observed=True)["__observed__"]
@@ -154,6 +177,8 @@ def audit_experiment(
             "missing_unit_rows": missing_units,
             "outcome_observation_gap": observation_gap,
             "maximum_absolute_smd": max_abs_smd,
+            "outcome_type": outcome_type,
+            "success_value": str(success_value) if outcome_type == "binary" else None,
         },
         arm_counts=arm_counts,
         outcome_observation=outcome_observation,

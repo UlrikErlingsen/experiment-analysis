@@ -53,6 +53,45 @@ def test_audit_rejects_an_outcome_with_no_numeric_values() -> None:
         audit_experiment(frame, unit=None, outcome="outcome", factors=["arm"])
 
 
+def test_binary_audit_accepts_declared_success_and_rejects_three_levels() -> None:
+    frame = pd.DataFrame(
+        {"arm": ["A", "A", "B", "B"], "outcome": ["no", "yes", "yes", "no"]}
+    )
+    audit = audit_experiment(
+        frame, unit=None, outcome="outcome", factors=["arm"], outcome_type="binary", success_value="yes"
+    )
+    assert audit.summary["outcome_type"] == "binary"
+    invalid = frame.copy()
+    invalid.loc[0, "outcome"] = "maybe"
+    with pytest.raises(DataProblem, match="exactly two"):
+        audit_experiment(
+            invalid, unit=None, outcome="outcome", factors=["arm"], outcome_type="binary", success_value="yes"
+        )
+
+
+def test_binary_decision_statuses_read_the_percentage_point_threshold() -> None:
+    frame = pd.DataFrame(
+        {
+            "unit": range(60),
+            "arm": ["A"] * 30 + ["B"] * 30,
+            "outcome": (["yes"] * 10 + ["no"] * 20) + (["yes"] * 16 + ["no"] * 14),
+        }
+    )
+    audit = audit_experiment(
+        frame, unit="unit", outcome="outcome", factors=["arm"], outcome_type="binary", success_value="yes"
+    )
+    common = {"randomized_confirmed": True, "audit": audit}
+    # A 2-percentage-point threshold on the probability scale is 0.02.
+    lift = classify_decision(estimate=0.06, ci_low=0.03, ci_high=0.09, minimum_effect=0.02, **common)
+    assert lift["status"] == "MEANINGFUL LIFT"
+    uncertain = classify_decision(estimate=0.06, ci_low=-0.01, ci_high=0.13, minimum_effect=0.02, **common)
+    assert uncertain["status"] == "UNCERTAIN"
+    harm = classify_decision(estimate=-0.06, ci_low=-0.09, ci_high=-0.03, minimum_effect=0.02, **common)
+    assert harm["status"] == "POTENTIAL HARM"
+    directional = classify_decision(estimate=0.06, ci_low=0.03, ci_high=0.09, minimum_effect=0.0, **common)
+    assert directional["status"] == "DIRECTIONAL ONLY"
+
+
 def _demo_audit():
     defaults = demo_defaults()
     return audit_experiment(

@@ -23,25 +23,27 @@ ExperimentSignal never uses `p < .05` as a rollout rule. The declared treatment-
 
 ## Supported scope
 
-Version 1.0 supports:
+Version 1.1 supports:
 
 - individually randomized, between-subject experiments;
 - one to three treatment factors, with two to eight levels per factor;
-- a continuous numeric primary outcome;
+- a continuous numeric or declared two-level binary primary outcome;
 - a declared cell-to-cell primary contrast;
 - optional numeric **pre-treatment** covariates;
-- covariate-adjusted cell means with cell-specific slopes and HC3 covariance;
+- covariate-adjusted cell means or binary risks with cell-specific slopes and HC3 covariance;
+- binary risk differences in percentage points as the primary effect — Newcombe hybrid Wilson score intervals without covariates, HC3 linear-probability intervals with covariates — plus descriptive unadjusted risk and odds ratios;
+- contract templates for a communication test, a price test, and a feature rollout;
 - all pairwise cell contrasts with Holm-adjusted exploratory p-values;
 - robust Type-II factorial term tests and descriptive partial eta-squared;
 - Welch's unequal-variance omnibus diagnostic;
 - fixed-seed sharp-null permutation inference for unadjusted two-arm, one-factor experiments;
-- prospective two-arm independent-means sample-size planning.
+- prospective two-arm independent-means or independent-proportions sample-size planning.
 
-It does **not** claim support for clustered assignment, repeated measures, paired or crossover studies, binary/count/survival outcomes, noncompliance estimands, adaptive or sequential designs, blocking-specific randomization inference, interference, missing-outcome correction, heterogeneous-effect discovery, or observational causal identification. Those designs need methods matched to their assignment and outcome structure.
+It does **not** claim support for clustered assignment, repeated measures, paired or crossover studies, count/ordered/survival outcomes, noncompliance estimands, adaptive or sequential designs, blocking-specific randomization inference, interference, missing-outcome correction, heterogeneous-effect discovery, or observational causal identification. Binary analysis uses a robust linear-probability estimand; designs needing conditional odds ratios, rare-event methods, or clustered binary inference require design-matched analysis.
 
 ## Try it in three minutes
 
-1. Start the app and click **Load fictional 2×2 demo**.
+1. Start the app and click **Load fictional 2×2 demo** — or **Load fictional binary message demo** for a two-arm test with a binary recall outcome.
 2. Review the saved design contract: two randomized factors, one continuous primary outcome, one baseline covariate, and a 0.40-point minimum worthwhile effect.
 3. Open the audit. Compare assigned counts, outcome observation rates, and baseline standardized differences across the four cells.
 4. Run the declared analysis. Read the primary adjusted contrast and its HC3 confidence interval before opening the test-statistic details.
@@ -66,10 +68,10 @@ For a factorial design, use one column per randomized factor. Treatment labels s
 The app requires a named:
 
 - randomized unit identifier;
-- primary continuous outcome;
+- primary continuous outcome or binary outcome with its declared success value;
 - one to three treatment factors;
 - control and treatment cells for the primary contrast;
-- minimum worthwhile effect in outcome units;
+- minimum worthwhile effect in outcome units (percentage points for a binary outcome);
 - target population, assignment mechanism, analysis population, stopping rule, and guardrail;
 - optional pre-treatment covariates.
 
@@ -143,7 +145,7 @@ python -m build
 
 The suite checks known two-arm calculations, synthetic factorial recovery, HC3 interval structure, Holm multiplicity, deterministic randomization inference, SMD auditing, missing outcomes, decision boundaries, power calculations, safe imports/exports, example generation, and every Streamlit page.
 
-## Relationship to the Signal tools
+## Relationship to the Signal suite
 
 - **[WorthSignal](https://github.com/UlrikErlingsen/customer-value-analytics)** asks what customers and relationships are worth.
 - **[SegmentSignal](https://github.com/UlrikErlingsen/customer-segmentation)** asks whether customers form stable, useful groups.
@@ -155,7 +157,10 @@ The suite checks known two-arm calculations, synthetic factorial recovery, HC3 i
 - **[GateSignal](https://github.com/UlrikErlingsen/launch-decision-gate)** asks whether a concept should receive the next bounded investment.
 - **[MeasureSignal](https://github.com/UlrikErlingsen/measurement-validation)** asks whether a multi-item score measures what you think it does.
 - **[TextSignal](https://github.com/UlrikErlingsen/open-text-analysis)** asks what recurring language patterns appear in open-ended responses.
+- **[RecommendSignal](https://github.com/UlrikErlingsen/recommender-evaluation)** compares recommendation policies offline; its selected policy still needs an online randomized test here before anyone claims commercial or causal lift.
 - **ExperimentSignal** asks whether an assigned treatment caused a practically meaningful change.
+
+The maintained public suite is listed at [ulrikerlingsen.com](https://ulrikerlingsen.com).
 
 ## Method references
 
@@ -176,4 +181,3 @@ ExperimentSignal is an independent implementation based on public statistical li
 The software and documentation are free under **AGPL-3.0-or-later**. The license covers this project's expression, not ownership of the published statistical methods it implements.
 
 This application was developed with AI coding assistance and checked through source review, analytical fixtures, deterministic synthetic recovery, automated app tests, and visual inspection. Verify material decisions independently; no warranty is provided.
-

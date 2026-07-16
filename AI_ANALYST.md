@@ -15,7 +15,7 @@
 
 ## Instructions for the AI assistant
 
-Everything below is addressed to you, the AI. Use this protocol only for an individually randomized, between-subject experiment with one continuous primary outcome. If the data involve clusters, repeated units, paired/crossover observations, binary/count/survival outcomes, noncompliance, interference, blocking-specific inference, adaptive stopping, or observational treatment assignment, stop and explain that a design-matched analysis is required.
+Everything below is addressed to you, the AI. Use this protocol only for an individually randomized, between-subject experiment with one continuous or declared two-level binary primary outcome. If the data involve clusters, repeated units, paired/crossover observations, count/ordered/survival outcomes, noncompliance, interference, blocking-specific inference, adaptive stopping, or observational treatment assignment, stop and explain that a design-matched analysis is required.
 
 ## Non-negotiable honesty rules
 
@@ -27,7 +27,7 @@ Everything below is addressed to you, the AI. Use this protocol only for an indi
 6. State that complete-case analysis can be biased by treatment-related missingness.
 7. Keep the primary contrast separate from exploratory pairwise and factorial tests.
 8. Report effects and confidence intervals in outcome units before standardized effects or p-values.
-9. Do not claim unsupported analysis for clusters, repeated observations, non-Gaussian outcomes, noncompliance, sequential looks, or interference.
+9. Do not claim unsupported analysis for clusters, repeated observations, count/ordered/survival outcomes, noncompliance, sequential looks, or interference.
 10. Do not reproduce proprietary course slides, cases, diagrams, exercises, exams, or institution-specific wording.
 
 ## Ask for the design contract
@@ -38,9 +38,9 @@ Before analyzing outcomes, obtain or label as retrospectively specified:
 - target population;
 - assignment mechanism and treatment probabilities;
 - treatment factor columns and levels;
-- primary continuous outcome and measurement window;
+- primary continuous outcome, or binary outcome plus the value that means success, and measurement window;
 - primary control and treatment cells;
-- smallest effect worth acting on in outcome units;
+- smallest effect worth acting on, in outcome units (percentage points for a binary outcome);
 - analysis population and exclusions;
 - fixed sample-size or stopping rule;
 - guardrail outcomes;
@@ -56,21 +56,27 @@ Treat |SMD| above 0.25, any repeated unit ID, a cell below 10, or an outcome-obs
 
 ## Estimation
 
-Use rows complete on outcome, all treatment factors, and declared covariates. Create one treatment-cell variable from the Cartesian treatment labels. With covariates, center each at its complete-sample mean and fit OLS with treatment-cell indicators, all centered covariates, and every cell-by-covariate interaction. Without covariates, use cell means.
+Use rows complete on outcome, all treatment factors, and declared covariates. For binary data, verify exactly two observed non-missing values after dropping missing rows and encode the declared success as 1 and the other value as 0. Create one treatment-cell variable from the Cartesian treatment labels. With covariates, center each at its complete-sample mean and fit OLS with treatment-cell indicators, all centered covariates, and every cell-by-covariate interaction. This is a linear probability model for binary outcomes. Without covariates, use cell means or risks.
 
 Compute adjusted cell means at centered covariates equal to zero. For the declared treatment-minus-control contrast, report:
 
-- estimate in outcome units;
+- estimate in outcome units, or risk difference in percentage points for binary outcomes;
 - HC3 robust standard error;
-- confidence interval using residual degrees of freedom;
-- descriptive Hedges' g from the unadjusted cell means and pooled within-cell SD;
+- confidence interval using residual degrees of freedom (continuous, or binary with covariates);
+- descriptive Hedges' g for continuous outcomes, or descriptive unadjusted risk and odds ratios for binary outcomes;
 - complete-case rows and retention.
 
-For all cell pairs, report the same contrasts and exploratory two-sided p-values, then apply Holm's step-down adjustment across that pairwise family. Do not multiplicity-adjust the separately declared primary interval unless several contrasts were genuinely co-primary.
+**Binary interval rule.** For a binary outcome **without** declared covariates, replace the model interval with the Newcombe (1998) hybrid Wilson score interval (method 10): compute each cell's Wilson score limits `(l, u) = (2np + z² ± z·sqrt(z² + 4np(1−p))) / (2(n + z²))`, then for `p_t − p_c` set `lower = (p_t − p_c) − sqrt((p_t − l_t)² + (u_c − p_c)²)` and `upper = (p_t − p_c) + sqrt((u_t − p_t)² + (p_c − l_c)²)`. The point estimate is the raw proportion difference, which equals the linear-probability contrast. For a binary outcome **with** covariates, keep the HC3 linear-probability interval and state the bounded-outcome caveat: a linear probability model can predict outside [0,1].
+
+For all cell pairs, report the same contrasts and exploratory two-sided p-values, then apply Holm's step-down adjustment across that pairwise family. For binary outcomes, take these pairwise p-values from the HC3 linear-probability t-tests (the same machinery as the continuous path); do not mix in two-proportion z-tests. Do not multiplicity-adjust the separately declared primary interval unless several contrasts were genuinely co-primary.
+
+For binary outcomes, keep the risk difference primary and declare the minimum worthwhile effect in percentage points (it must still be positive). Flag any adjusted cell probability outside [0,1], suppress ratios with undefined denominators, and do not silently substitute a logistic odds-ratio estimand.
 
 For factorial data, a separate model may report all factor interactions plus additive pre-treatment covariates with robust Type-II omnibus tests and descriptive partial eta-squared. Keep concrete cell contrasts primary, particularly when interactions exist.
 
-For exactly two unadjusted arms under complete random assignment, optionally permute treatment labels with group sizes fixed, use the absolute difference in means, and report `(extreme + 1)/(B + 1)` with a stated seed. Explain that this tests Fisher's sharp null, not merely a zero average effect.
+For exactly two unadjusted arms under complete random assignment, optionally permute treatment labels with group sizes fixed, use the absolute difference in means, and report `(extreme + 1)/(B + 1)` with a stated seed. This applies to binary outcomes too: the difference in means of a 0/1 outcome is the difference in success proportions. Explain that this tests Fisher's sharp null, not merely a zero average effect.
+
+For prospective two-arm binary planning, convert declared control and treatment risks to Cohen's arcsine effect `h = 2·arcsin(sqrt(p_t)) − 2·arcsin(sqrt(p_c))` and solve the two-sided normal-approximation power equation, then inflate for attrition.
 
 ## Decision reading
 
@@ -109,6 +115,9 @@ Never include raw participant rows or direct identifiers in the final evidence p
 - MacKinnon, J. G., & White, H. (1985). Some heteroskedasticity-consistent covariance matrix estimators with improved finite sample properties. *Journal of Econometrics, 29*, 305–325. https://doi.org/10.1016/0304-4076(85)90158-7
 - Long, J. S., & Ervin, L. H. (2000). Using heteroscedasticity consistent standard errors in the linear regression model. *The American Statistician, 54*(3), 217–224. https://doi.org/10.1080/00031305.2000.10474549
 - Holm, S. (1979). A Simple Sequentially Rejective Multiple Test Procedure. *Scandinavian Journal of Statistics, 6*, 65–70. https://www.jstor.org/stable/4615733
+- Wilson, E. B. (1927). Probable inference, the law of succession, and statistical inference. *Journal of the American Statistical Association, 22*, 209–212. https://doi.org/10.1080/01621459.1927.10502953
+- Newcombe, R. G. (1998). Interval estimation for the difference between independent proportions: comparison of eleven methods. *Statistics in Medicine, 17*(8), 873–890. https://doi.org/10.1002/(SICI)1097-0258(19980430)17:8<873::AID-SIM779>3.0.CO;2-I
+- Cohen, J. (1988). *Statistical Power Analysis for the Behavioral Sciences* (2nd ed.). Lawrence Erlbaum.
 - Lin, W. (2013). Agnostic notes on regression adjustments to experimental data. *Annals of Applied Statistics, 7*, 295–318. https://doi.org/10.1214/12-AOAS583
 - Wasserstein, R. L., & Lazar, N. A. (2016). The ASA Statement on p-Values. *The American Statistician, 70*, 129–133. https://doi.org/10.1080/00031305.2016.1154108
 - Lakens, D. (2013). Calculating and reporting effect sizes to facilitate cumulative science. *Frontiers in Psychology, 4*, 863. https://doi.org/10.3389/fpsyg.2013.00863

@@ -2,8 +2,16 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from experimentsignal.analysis import AnalysisConfig, analyze_experiment, plan_two_arm_sample
+from experimentsignal.analysis import (
+    AnalysisConfig,
+    analyze_experiment,
+    newcombe_hybrid_interval,
+    plan_two_arm_binary_sample,
+    plan_two_arm_sample,
+    wilson_score_interval,
+)
 from experimentsignal.examples import demo_dataframe, demo_defaults
 
 
@@ -106,4 +114,115 @@ def test_two_arm_power_planner_returns_plausible_and_attrition_inflated_counts()
     )
     assert 95 <= plan["complete_control"] <= 105
     assert plan["complete_control"] == plan["complete_treatment"]
+    assert plan["assign_total"] > plan["complete_total"]
+
+
+def test_binary_outcome_reports_adjusted_risk_difference_and_descriptive_ratios() -> None:
+    frame = pd.DataFrame(
+        {
+            "unit": range(200),
+            "arm": ["Control"] * 100 + ["Treatment"] * 100,
+            "converted": ["yes"] * 20 + ["no"] * 80 + ["yes"] * 35 + ["no"] * 65,
+        }
+    )
+    result = analyze_experiment(
+        frame,
+        AnalysisConfig(
+            outcome="converted",
+            factors=("arm",),
+            covariates=(),
+            control_arm="arm=Control",
+            treatment_arm="arm=Treatment",
+            outcome_type="binary",
+            success_value="yes",
+            permutations=199,
+        ),
+    )
+    assert np.isclose(result.primary["estimate"], 0.15)
+    assert np.isclose(result.primary["risk_ratio_descriptive"], 1.75)
+    assert result.primary["effect_scale"] == "risk difference"
+    assert result.diagnostics["outcome_type"] == "binary"
+    assert np.isnan(result.primary["hedges_g_descriptive"])
+
+
+def test_newcombe_interval_matches_hand_checked_published_example() -> None:
+    # Newcombe (1998), example (a): 56/70 versus 48/80 at 95% confidence.
+    low, high = wilson_score_interval(56, 70, alpha=0.05)
+    assert low == pytest.approx(0.6918335550, abs=1e-9)
+    assert high == pytest.approx(0.8769526075, abs=1e-9)
+    lower, upper = newcombe_hybrid_interval(48, 80, 56, 70, alpha=0.05)
+    assert lower == pytest.approx(0.0524314724, abs=1e-9)
+    assert upper == pytest.approx(0.3338726540, abs=1e-9)
+    # Boundary counts stay estimable and inside [-1, 1].
+    boundary = newcombe_hybrid_interval(0, 40, 40, 40, alpha=0.05)
+    assert -1.0 <= boundary[0] <= boundary[1] <= 1.0
+
+
+def _two_arm_binary_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "unit": range(150),
+            "arm": ["Control"] * 80 + ["Treatment"] * 70,
+            "converted": ["yes"] * 48 + ["no"] * 32 + ["yes"] * 56 + ["no"] * 14,
+        }
+    )
+
+
+def test_unadjusted_binary_contrast_is_proportion_difference_with_newcombe_interval() -> None:
+    result = analyze_experiment(
+        _two_arm_binary_frame(),
+        AnalysisConfig(
+            outcome="converted",
+            factors=("arm",),
+            covariates=(),
+            control_arm="arm=Control",
+            treatment_arm="arm=Treatment",
+            outcome_type="binary",
+            success_value="yes",
+            permutations=499,
+        ),
+    )
+    # The LPM contrast without covariates equals the raw proportion difference exactly.
+    assert result.primary["estimate"] == pytest.approx(56 / 70 - 48 / 80, abs=1e-12)
+    assert result.primary["interval_method"] == "Newcombe hybrid Wilson score"
+    assert result.primary["ci_low"] == pytest.approx(0.0524314724, abs=1e-9)
+    assert result.primary["ci_high"] == pytest.approx(0.3338726540, abs=1e-9)
+    assert result.diagnostics["interval_method"] == "Newcombe hybrid Wilson score"
+    # The sharp-null permutation check is enabled: difference in proportions is the mean difference.
+    assert result.permutation is not None
+    assert result.permutation["statistic"] == "absolute difference in success proportions"
+    assert 0 < float(result.permutation["two_sided_p_value"]) <= 1
+
+
+def test_adjusted_binary_outcome_keeps_hc3_lpm_interval_and_withholds_permutation() -> None:
+    rng = np.random.default_rng(11)
+    frame = _two_arm_binary_frame()
+    frame["baseline"] = rng.normal(5, 1, len(frame)).round(2)
+    result = analyze_experiment(
+        frame,
+        AnalysisConfig(
+            outcome="converted",
+            factors=("arm",),
+            covariates=("baseline",),
+            control_arm="arm=Control",
+            treatment_arm="arm=Treatment",
+            outcome_type="binary",
+            success_value="yes",
+        ),
+    )
+    assert result.primary["interval_method"] == "HC3 t"
+    assert result.permutation is None
+    assert any("linear-probability" in warning for warning in result.warnings)
+
+
+def test_binary_power_planner_uses_absolute_probability_lift() -> None:
+    plan = plan_two_arm_binary_sample(
+        control_rate=0.10,
+        minimum_lift=0.03,
+        alpha=0.05,
+        power=0.80,
+        expected_attrition=0.10,
+    )
+    assert plan["treatment_rate"] == pytest.approx(0.13)
+    assert plan["complete_total"] > 1000
     assert plan["assign_total"] > plan["complete_total"]
