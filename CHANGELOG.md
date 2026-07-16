@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1 — 2026-07-16
+
+### Security
+
+- Export sanitizer now also neutralizes formula-like column headers and strips control characters; Docker images keep application code root-owned; defusedxml hardens workbook XML parsing. Treatment-arm labels are HTML-escaped in the primary-estimand note.
+
 ## 1.1.0 — 2026-07-16
 
 - Added declared binary outcomes for clicks, conversions, purchases, recall, disclosure recognition, and other two-level endpoints.

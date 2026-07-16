@@ -7,6 +7,7 @@ os.environ.setdefault("ARROW_DEFAULT_MEMORY_POOL", "system")
 
 import base64
 import hashlib
+import html
 import inspect
 from pathlib import Path
 import sys
@@ -684,9 +685,9 @@ def render_effects() -> None:
     st.markdown(
         f"""
         <div class="xs-note"><strong>Primary estimand:</strong> {estimand} under
-        <code>{primary['treatment_arm']}</code> minus {estimand} under <code>{primary['control_arm']}</code>,
+        <code>{html.escape(str(primary['treatment_arm']))}</code> minus {estimand} under <code>{html.escape(str(primary['control_arm']))}</code>,
         {adjustment_text}. The estimate is <strong>{estimate_text}</strong> with a
-        {interval_method} interval.</div>
+        {html.escape(interval_method)} interval.</div>
         """,
         unsafe_allow_html=True,
     )
