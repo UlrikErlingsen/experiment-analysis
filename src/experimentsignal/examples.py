@@ -116,7 +116,7 @@ def contract_templates() -> dict[str, dict[str, object]]:
             "guardrail": "Revenue per visitor and refund rate should be checked separately",
             "note": (
                 "This tests one purchase outcome at declared price points. Deeper pricing questions—"
-                "price ladders, willingness to pay, elasticity—belong to PriceSignal, the pricing sibling."
+                "price ladders, willingness to pay, elasticity—belong to TagSignal, the pricing sibling."
             ),
         },
         "Feature rollout": {

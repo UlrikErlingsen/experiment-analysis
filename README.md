@@ -157,7 +157,10 @@ The suite checks known two-arm calculations, synthetic factorial recovery, HC3 i
 - **[GateSignal](https://github.com/UlrikErlingsen/launch-decision-gate)** asks whether a concept should receive the next bounded investment.
 - **[MeasureSignal](https://github.com/UlrikErlingsen/measurement-validation)** asks whether a multi-item score measures what you think it does.
 - **[TextSignal](https://github.com/UlrikErlingsen/open-text-analysis)** asks what recurring language patterns appear in open-ended responses.
+- **[TagSignal](https://github.com/UlrikErlingsen/pricing-analysis)** asks what price range is supported and how unit contribution changes, from assigned-price, historical, or willingness-to-pay evidence.
 - **[RecommendSignal](https://github.com/UlrikErlingsen/recommender-evaluation)** compares recommendation policies offline; its selected policy still needs an online randomized test here before anyone claims commercial or causal lift.
+- **[TraceSignal](https://github.com/UlrikErlingsen/journey-path-analysis)** asks how logged customer journeys actually unfold: transitions, path support, drop-off, and Markov removal sensitivity, with no causal channel credit.
+- **[TrackSignal](https://github.com/UlrikErlingsen/brand-tracking)** asks whether brand measures moved across tracking waves by more than a declared practical threshold.
 - **ExperimentSignal** asks whether an assigned treatment caused a practically meaningful change.
 
 The maintained public suite is listed at [ulrikerlingsen.com](https://ulrikerlingsen.com).

@@ -67,7 +67,7 @@ def test_contract_templates_prefill_fields_only_and_never_fabricate_data() -> No
     assert templates["Communication test"]["outcome_type"] == "binary"
     assert templates["Price test"]["outcome_type"] == "binary"
     assert templates["Feature rollout"]["outcome_type"] == "continuous"
-    assert "PriceSignal" in str(templates["Price test"]["note"])
+    assert "TagSignal" in str(templates["Price test"]["note"])
     for template in templates.values():
         # Templates carry wording and outcome type, never column choices, thresholds, or data.
         for forbidden in ("outcome", "factors", "covariates", "control_arm", "treatment_arm", "minimum_effect", "data"):
