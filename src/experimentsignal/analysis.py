@@ -8,7 +8,6 @@ import math
 
 import numpy as np
 import pandas as pd
-import patsy
 import scipy.stats as stats
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
@@ -99,7 +98,9 @@ def _prepare(frame: pd.DataFrame, config: AnalysisConfig) -> tuple[pd.DataFrame,
 def _prediction_vector(model, arm: str, covariate_count: int) -> np.ndarray:
     values: dict[str, object] = {"arm": arm}
     values.update({f"covariate_{index}": 0.0 for index in range(1, covariate_count + 1)})
-    matrix = patsy.build_design_matrices([model.model.data.design_info], pd.DataFrame([values]))[0]
+    # Results._transform_predict_exog applies the fitted formula to new rows on both the
+    # patsy backend (statsmodels < 0.15) and the formulaic backend (statsmodels >= 0.15).
+    matrix, _ = model._transform_predict_exog(pd.DataFrame([values]), transform=True)
     return np.asarray(matrix, dtype=float)[0]
 
 
