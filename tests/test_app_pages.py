@@ -3,7 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
+
+from experimentsignal import __version__
+
 APP = str(Path(__file__).parents[1] / "app.py")
+
+
+def k(name: str) -> str:
+    return f"experiment:{name}"
+
 
 def app() -> AppTest:
     return AppTest.from_file(APP, default_timeout=30).run()
@@ -12,13 +20,13 @@ def app() -> AppTest:
 def test_welcome_page_and_brand_are_rendered() -> None:
     at = app()
     assert not at.exception
-    assert any("ExperimentSignal" in markdown.value for markdown in at.markdown)
+    assert any(f"Experiment Signal v{__version__}" in markdown.value for markdown in at.markdown)
     assert any("does not manufacture randomization" in warning.value for warning in at.warning)
 
 
 def test_every_page_renders_with_fictional_demo() -> None:
     at = app()
-    at.button(key="load_demo").click().run()
+    at.button(key=k("load_demo")).click().run()
     for page in [
         "1 · Design contract",
         "2 · Data & randomization audit",
@@ -33,14 +41,14 @@ def test_every_page_renders_with_fictional_demo() -> None:
 
 def test_binary_demo_flow_uses_newcombe_and_reads_an_honest_uncertain_decision() -> None:
     at = app()
-    at.button(key="load_binary_demo").click().run()
+    at.button(key=k("load_binary_demo")).click().run()
     at.radio[0].set_value("2 · Data & randomization audit").run()
-    at.button(key="run_analysis").click().run()
+    at.button(key=k("run_analysis")).click().run()
     assert not at.exception
-    analysis = at.session_state["analysis"]
+    analysis = at.session_state[k("analysis")]
     assert analysis.primary["interval_method"] == "Newcombe hybrid Wilson score"
     # The seeded demo is deliberately instructive: evidence of a lift, but the 2 pp practical bound is not cleared.
-    assert at.session_state["decision"]["status"] == "UNCERTAIN"
+    assert at.session_state[k("decision")]["status"] == "UNCERTAIN"
     at.radio[0].set_value("3 · Effects & uncertainty").run()
     assert not at.exception
     at.radio[0].set_value("4 · Decision & export").run()
@@ -49,23 +57,37 @@ def test_binary_demo_flow_uses_newcombe_and_reads_an_honest_uncertain_decision()
 
 def test_contract_template_selector_prefills_binary_communication_test() -> None:
     at = app()
-    at.button(key="load_binary_demo").click().run()
+    at.button(key=k("load_binary_demo")).click().run()
     at.radio[0].set_value("1 · Design contract").run()
-    at.selectbox(key="contract_template").set_value("Communication test").run()
-    at.button(key="apply_template").click().run()
+    at.selectbox(key=k("contract_template")).set_value("Communication test").run()
+    at.button(key=k("apply_template")).click().run()
     assert not at.exception
-    contract = at.session_state["contract"]
+    contract = at.session_state[k("contract")]
     assert contract["outcome_type"] == "binary"
     assert "recall" in str(contract["question"])
+    # The form fields are re-seeded from the applied template instead of keeping stale widget values.
+    question = [field for field in at.text_input if field.label == "Decision question"][0]
+    assert question.value == contract["question"]
+
+
+def test_loading_another_demo_reseeds_the_contract_form() -> None:
+    at = app()
+    at.button(key=k("load_demo")).click().run()
+    at.radio[0].set_value("1 · Design contract").run()
+    assert [box.value for box in at.selectbox if box.label == "Primary outcome type"] == ["continuous"]
+    at.button(key=k("load_binary_demo")).click().run()
+    assert not at.exception
+    assert [box.value for box in at.selectbox if box.label == "Primary outcome type"] == ["binary"]
+    assert [box.value for box in at.selectbox if box.label == "Primary outcome"] == ["recalled_key_claim"]
 
 
 def test_demo_analysis_flow_produces_conservative_evidence_pack() -> None:
     at = app()
-    at.button(key="load_demo").click().run()
+    at.button(key=k("load_demo")).click().run()
     at.radio[0].set_value("2 · Data & randomization audit").run()
-    at.button(key="run_analysis").click().run()
-    assert "analysis" in at.session_state
-    assert at.session_state["decision"]["status"] == "MEANINGFUL LIFT"
+    at.button(key=k("run_analysis")).click().run()
+    assert k("analysis") in at.session_state
+    assert at.session_state[k("decision")]["status"] == "MEANINGFUL LIFT"
 
     at.radio[0].set_value("3 · Effects & uncertainty").run()
     assert not at.exception
