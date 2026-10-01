@@ -27,7 +27,7 @@ Outcome missingness can destroy the comparability created by random assignment. 
 
 ## Outcome
 
-Version 1.1 accepts either a continuous primary outcome or a declared two-level binary outcome. For binary data, keep the original labels—such as `clicked`/`not_clicked`, `1`/`0`, or `recognized`/`not_recognized`—and declare which value is success. Do not collapse a richer outcome into binary form merely to obtain a favorable result.
+Version 1.2 accepts either a continuous primary outcome or a declared two-level binary outcome. For binary data, keep the original labels—such as `clicked`/`not_clicked`, `1`/`0`, or `recognized`/`not_recognized`—and declare which value is success. Do not collapse a richer outcome into binary form merely to obtain a favorable result.
 
 A bounded rating may be defensible as approximately interval-scaled, but the assumption should be stated. Counts, ordered categories, durations, and time-to-event outcomes still need different outcome models and uncertainty calculations.
 

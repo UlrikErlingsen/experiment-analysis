@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.0 — 2026-10-02
+
+Signal brand refresh and Signal Hub entry point. The analysis, statistics, decision rules, data contract and exports are unchanged.
+
+### Brand
+
+- Display name written **Experiment Signal** (with a space) in the app, README, docs, launchers, citation and the evidence-pack product label. Package, file, schema and environment-variable names stay `experimentsignal` / `EXPERIMENTSIGNAL_*`.
+- The app uses the shared `signal_theme` module (Organic Signal design, Decide family colour `#4f80a2`, Figtree): sidebar lockup, masthead, hero, cards, notes, decision card, footer and the mark as favicon replace the pasted styles.
+- The pairwise contrast chart uses the per-app Plotly template and the shared semantic colours (estimate, interval, practical-threshold band, zero line); its meaning is unchanged.
+- New banner, social preview and marks in `assets/`; the old banner SVG is removed. `.streamlit/config.toml` uses the family colours and keeps the 50 MB upload limit.
+- README follows the Signal template; bug-report and feature-request issue templates added.
+
+### Signal Hub contract
+
+- `experimentsignal.ui` exposes `APP_INFO` and `render()`, so Signal Hub can embed the app; `app.py` is now a thin standalone entry point.
+- All session-state and widget keys are namespaced `experiment:` (including the page selector). Loading a demo, uploading a file or applying a template still re-seeds the contract form.
+- `streamlit` and `plotly` moved to a `ui` extra (also in `test`); the analysis core installs without them. `requirements.txt` still lists everything.
+- The UI reads no repository-root files: demos are generated in code and the marks ship as package data.
+- New tests: no Streamlit/Plotly import outside `experimentsignal.ui`, `render()` runs from a script without a page config and from a copy holding only the packaged files, every widget key is namespaced, and the README follows the Signal template.
+
 ## 1.1.1 — 2026-07-16
 
 ### Security
