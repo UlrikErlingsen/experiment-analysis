@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-message: "If you use ExperimentSignal, please cite this software."
-title: "ExperimentSignal"
+message: "If you use Experiment Signal, please cite this software."
+title: "Experiment Signal"
 type: software
 authors:
   - family-names: "Erlingsen"

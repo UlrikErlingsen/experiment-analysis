@@ -10,7 +10,7 @@ Please report a suspected vulnerability privately through GitHub's security-advi
 
 ## Data-handling notes
 
-ExperimentSignal accepts CSV, XLSX, and JSON tables up to 50 MB and applies row/column limits. It does not execute workbook macros. Exported text that could be interpreted as a spreadsheet formula is neutralized. Aggregate evidence exports omit row-level experimental records.
+Experiment Signal accepts CSV, XLSX, and JSON tables up to 50 MB and applies row/column limits. It does not execute workbook macros. Exported text that could be interpreted as a spreadsheet formula is neutralized. Aggregate evidence exports omit row-level experimental records.
 
-These controls do not turn ExperimentSignal into a hardened multi-tenant service. A hosted deployment should add authentication, TLS, authorization, rate limiting, secure headers, isolated storage, dependency monitoring, logging appropriate to the data classification, and a documented deletion policy.
+These controls do not turn Experiment Signal into a hardened multi-tenant service. A hosted deployment should add authentication, TLS, authorization, rate limiting, secure headers, isolated storage, dependency monitoring, logging appropriate to the data classification, and a documented deletion policy.
 

@@ -1,4 +1,4 @@
-# ExperimentSignal decision guide
+# Experiment Signal decision guide
 
 ## Before opening the outcome
 

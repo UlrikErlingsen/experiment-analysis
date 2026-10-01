@@ -1,4 +1,4 @@
-# ExperimentSignal data guide
+# Experiment Signal data guide
 
 ## One row per randomized unit
 
@@ -8,7 +8,7 @@ Choose an identifier only for duplicate detection. The app excludes row-level id
 
 ## Keep assignment, not only exposure
 
-Treatment columns should record the randomized assignment. Replacing assignment with observed exposure can break the randomized comparison when units do not comply. ExperimentSignal does not estimate complier effects or per-protocol causal effects.
+Treatment columns should record the randomized assignment. Replacing assignment with observed exposure can break the randomized comparison when units do not comply. Experiment Signal does not estimate complier effects or per-protocol causal effects.
 
 For factorial designs, use one column per randomized factor:
 
@@ -41,7 +41,7 @@ Choose one to three treatment columns with two to eight observed levels each. Do
 
 Optional covariates must be numeric and determined before assignment could affect them. Useful candidates include a pre-period outcome, a stratification variable encoded appropriately, or a stable pre-treatment measure strongly related to the outcome.
 
-Do not control for mediators, treatment receipt, post-treatment satisfaction, downstream engagement, or any field affected by treatment. ExperimentSignal centers covariates and allows their outcome slopes to differ by treatment cell. Constant covariates are rejected.
+Do not control for mediators, treatment receipt, post-treatment satisfaction, downstream engagement, or any field affected by treatment. Experiment Signal centers covariates and allows their outcome slopes to differ by treatment cell. Constant covariates are rejected.
 
 ## Accepted files and safety
 

@@ -1,8 +1,8 @@
-# ExperimentSignal methods
+# Experiment Signal methods
 
 ## Analysis contract
 
-ExperimentSignal estimates mean or risk contrasts for individually randomized, between-subject experiments with a continuous or declared two-level binary outcome. The primary estimand is the declared treatment-cell mean/risk minus the declared control-cell mean/risk for the declared target population and analysis population.
+Experiment Signal estimates mean or risk contrasts for individually randomized, between-subject experiments with a continuous or declared two-level binary outcome. The primary estimand is the declared treatment-cell mean/risk minus the declared control-cell mean/risk for the declared target population and analysis population.
 
 Potential outcomes motivate the causal interpretation: each unit has an outcome under each treatment condition, but only the assigned condition is observed. Random assignment supports exchangeability of treatment groups in repeated assignments. Identification also requires treatment versions and interference to be acceptably controlled, outcome measurement to be comparable, and missingness not to destroy exchangeability.
 
@@ -25,7 +25,7 @@ SMD is not a test of the randomization mechanism. A randomized experiment can sh
 
 ## Adjusted cell-mean model
 
-Let `A` denote the full treatment cell created by all selected factors and let `X_c` be centered pre-treatment covariates. ExperimentSignal fits:
+Let `A` denote the full treatment cell created by all selected factors and let `X_c` be centered pre-treatment covariates. Experiment Signal fits:
 
 `Y = cell indicators + X_c + cell × X_c interactions + error`
 
@@ -112,7 +112,7 @@ Let `delta` be the declared minimum worthwhile effect, with symmetric boundaries
 
 This interval logic is intentionally more demanding than point-estimate or p-value thresholding. It is not a full economic model and does not replace guardrail analysis. Randomization or audit failures override the effect status with `ASSOCIATION ONLY` or `DESIGN AT RISK`.
 
-With `delta = 0` the rule degenerates: "the interval excludes zero" is mathematically identical to the `p < alpha` significance rule that ExperimentSignal refuses to present as a decision. The contract page therefore blocks saving a zero minimum worthwhile effect, and if a zero threshold nevertheless reaches the classifier, the status becomes `DIRECTIONAL ONLY` — a statement that only a zero-null significance reading is available, with a request to declare a positive threshold in outcome units before any practical decision is read.
+With `delta = 0` the rule degenerates: "the interval excludes zero" is mathematically identical to the `p < alpha` significance rule that Experiment Signal refuses to present as a decision. The contract page therefore blocks saving a zero minimum worthwhile effect, and if a zero threshold nevertheless reaches the classifier, the status becomes `DIRECTIONAL ONLY` — a statement that only a zero-null significance reading is available, with a request to declare a positive threshold in outcome units before any practical decision is read.
 
 ## Prospective power
 

@@ -2,9 +2,9 @@
 
 ## Independent scope
 
-ExperimentSignal is an original software implementation of public statistical ideas for randomized experiments. Its product structure, interface, prose, code, decision statuses, synthetic example, graphics, and evidence schema were created for this project.
+Experiment Signal is an original software implementation of public statistical ideas for randomized experiments. Its product structure, interface, prose, code, decision statuses, synthetic example, graphics, and evidence schema were created for this project.
 
-ExperimentSignal is independently designed and written from the published statistical literature below. It does not reproduce lecture slides, speaker notes, cases, exercises, assessment questions, figures, tables, diagrams, or any institution-specific teaching material, and no such file is shipped, quoted, transformed, or required at runtime. General topics encountered in education—experiment design and analysis—only define the problem domain.
+Experiment Signal is independently designed and written from the published statistical literature below. It does not reproduce lecture slides, speaker notes, cases, exercises, assessment questions, figures, tables, diagrams, or any institution-specific teaching material, and no such file is shipped, quoted, transformed, or required at runtime. General topics encountered in education—experiment design and analysis—only define the problem domain.
 
 The fictional 2×2 demonstration is generated from a documented random seed. Its organization, treatment labels, variables, assignments, outcomes, and effect pattern do not represent real data or a classroom case.
 
@@ -21,7 +21,7 @@ The implementation is grounded in independently published literature:
 - the ASA statement's limits on p-value interpretation;
 - Lakens's emphasis on effect sizes and cumulative interpretation.
 
-These methods belong to the scientific record; citing them acknowledges intellectual provenance. ExperimentSignal's license applies to this project's particular code and documentation, not to ownership of statistical concepts.
+These methods belong to the scientific record; citing them acknowledges intellectual provenance. Experiment Signal's license applies to this project's particular code and documentation, not to ownership of statistical concepts.
 
 ## Language and safeguards
 

@@ -1,6 +1,6 @@
-# ExperimentSignal AI Analyst — run this analysis with any AI, no install needed
+# Experiment Signal AI Analyst — run this analysis with any AI, no install needed
 
-> Part of [ExperimentSignal](https://github.com/UlrikErlingsen/experiment-analysis), a free open-source app that runs this same analysis with a point-and-click interface on your computer. This file is the no-install alternative: give it to an AI assistant and it becomes the analyst.
+> Part of [Experiment Signal](https://github.com/UlrikErlingsen/experiment-analysis), a free open-source app that runs this same analysis with a point-and-click interface on your computer. This file is the no-install alternative: give it to an AI assistant and it becomes the analyst.
 
 ## How to use this file (2 minutes)
 

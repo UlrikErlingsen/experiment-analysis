@@ -47,7 +47,7 @@ def read_table(raw: bytes, filename: str) -> tuple[pd.DataFrame, dict[str, str]]
     if not raw:
         raise DataProblem("The uploaded file is empty.")
     if len(raw) > MAX_UPLOAD_BYTES:
-        raise DataProblem("The uploaded file exceeds ExperimentSignal's 50 MB local safety limit.")
+        raise DataProblem("The uploaded file exceeds Experiment Signal's 50 MB local safety limit.")
     extension = Path(filename).suffix.casefold()
     if extension not in ALLOWED_EXTENSIONS:
         raise DataProblem("Use CSV, XLSX, or JSON for experiment data.")
@@ -139,7 +139,7 @@ def build_evidence_pack(
         "schema": "experimentsignal.evidence.v1",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "generated_by": {
-            "product": "ExperimentSignal",
+            "product": "Experiment Signal",
             "version": __version__,
             "python": platform.python_version(),
         },
@@ -195,7 +195,7 @@ def evidence_to_excel(pack: dict[str, object]) -> bytes:
     tables = pack.get("tables", {})
     flat_sections = {
         "Read me": {
-            "product": "ExperimentSignal",
+            "product": "Experiment Signal",
             "schema": pack.get("schema"),
             "causal_status": pack.get("causal_status"),
             "privacy_note": pack.get("privacy_note"),

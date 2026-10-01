@@ -1,17 +1,20 @@
 <p align="center">
-  <img src="assets/experimentsignal-banner.svg" alt="ExperimentSignal — did the treatment cause a change worth acting on?" width="100%">
+  <img src="assets/experimentsignal-banner.png" alt="Experiment Signal: Did the treatment cause a change worth acting on?" width="100%">
 </p>
 
 <p align="center">
-  <a href="https://github.com/UlrikErlingsen/experiment-analysis/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/UlrikErlingsen/experiment-analysis/actions/workflows/tests.yml/badge.svg"></a>
-  <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-173C3A?logo=python&logoColor=white">
-  <img alt="Streamlit" src="https://img.shields.io/badge/Streamlit-app-D95B40?logo=streamlit&logoColor=white">
-  <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/License-AGPL--3.0--or--later-36534E"></a>
+  <a href="https://github.com/UlrikErlingsen/experiment-analysis/actions"><img alt="Tests" src="https://github.com/UlrikErlingsen/experiment-analysis/actions/workflows/tests.yml/badge.svg"></a>
+  <a href="https://github.com/UlrikErlingsen/signal-hub"><img alt="Signal · Decide" src="https://img.shields.io/badge/Signal-Decide-4f80a2?labelColor=2e2b25"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-2e2b25?logo=python&logoColor=f9f4ed">
+  <img alt="Streamlit" src="https://img.shields.io/badge/Streamlit-app-4f80a2?logo=streamlit&logoColor=f9f4ed">
+  <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/License-AGPL--3.0--or--later-645c50"></a>
 </p>
 
 <p align="center"><strong>Open experiment decision support — declare the contrast, audit the design, estimate the effect, preserve the uncertainty.</strong></p>
 
-**ExperimentSignal** helps analysts, marketers, and product teams decide whether a randomized between-subject treatment caused a change large enough to matter. It combines a written design contract, assignment and missingness audit, robust adjusted cell means, pairwise contrast families, factorial decomposition, practical decision bounds, prospective power planning, and a reproducible evidence pack.
+**Experiment Signal** helps analysts, marketers, and product teams decide whether a randomized between-subject treatment caused a change large enough to matter. It combines a written design contract, assignment and missingness audit, robust adjusted cell means, pairwise contrast families, factorial decomposition, practical decision bounds, prospective power planning, and a reproducible evidence pack.
+
+> Did the treatment cause a change worth acting on?
 
 Everything runs locally with open-source Python packages. There is no account, telemetry, external AI call, remote database, or built-in persistence.
 
@@ -19,11 +22,11 @@ Everything runs locally with open-source Python packages. There is no account, t
 
 > **The app estimates contrasts; it does not manufacture randomization.** A causal interpretation requires a valid assignment process, one observation per randomized unit, treatment before outcome, acceptable outcome observation, limited interference, faithful implementation, and an analysis matched to the design.
 
-ExperimentSignal never uses `p < .05` as a rollout rule. The declared treatment-minus-control estimate and confidence interval are compared with a minimum worthwhile effect in outcome units. P-values remain visible as supporting diagnostics and are explicitly labeled exploratory.
+Experiment Signal never uses `p < .05` as a rollout rule. The declared treatment-minus-control estimate and confidence interval are compared with a minimum worthwhile effect in outcome units. P-values remain visible as supporting diagnostics and are explicitly labeled exploratory.
 
-## Supported scope
+## Scope
 
-Version 1.1 supports:
+**Version 1.2 supports:**
 
 - individually randomized, between-subject experiments;
 - one to three treatment factors, with two to eight levels per factor;
@@ -39,29 +42,29 @@ Version 1.1 supports:
 - fixed-seed sharp-null permutation inference for unadjusted two-arm, one-factor experiments;
 - prospective two-arm independent-means or independent-proportions sample-size planning.
 
-It does **not** claim support for clustered assignment, repeated measures, paired or crossover studies, count/ordered/survival outcomes, noncompliance estimands, adaptive or sequential designs, blocking-specific randomization inference, interference, missing-outcome correction, heterogeneous-effect discovery, or observational causal identification. Binary analysis uses a robust linear-probability estimand; designs needing conditional odds ratios, rare-event methods, or clustered binary inference require design-matched analysis.
+**It does not** claim support for clustered assignment, repeated measures, paired or crossover studies, count/ordered/survival outcomes, noncompliance estimands, adaptive or sequential designs, blocking-specific randomization inference, interference, missing-outcome correction, heterogeneous-effect discovery, or observational causal identification. Binary analysis uses a robust linear-probability estimand; designs needing conditional odds ratios, rare-event methods, or clustered binary inference require design-matched analysis. Price ladders, willingness to pay, and elasticity belong to **[Tag Signal](https://github.com/UlrikErlingsen/pricing-analysis)**; offline recommendation-policy comparison belongs to **[Recommend Signal](https://github.com/UlrikErlingsen/recommender-evaluation)**, whose selected policy still needs an online randomized test here.
 
-## Try it in three minutes
+## Try the demo in three minutes
 
 1. Start the app and click **Load fictional 2×2 demo** — or **Load fictional binary message demo** for a two-arm test with a binary recall outcome.
 2. Review the saved design contract: two randomized factors, one continuous primary outcome, one baseline covariate, and a 0.40-point minimum worthwhile effect.
 3. Open the audit. Compare assigned counts, outcome observation rates, and baseline standardized differences across the four cells.
 4. Run the declared analysis. Read the primary adjusted contrast and its HC3 confidence interval before opening the test-statistic details.
 5. Review the factorial interaction and the full pairwise family without changing the primary contrast.
-6. Open the decision page and export the privacy-minimized evidence record.
+6. Open the decision page and export the privacy-minimized evidence record as Excel, CSV-ZIP, or JSON.
 
 The example is deterministic synthetic data for a fictional service. It represents no real person, organization, course case, or empirical result.
 
-## Data layout
+## Data contract
 
-Use one row per randomized unit. CSV, XLSX, and JSON are supported.
+Use one row per randomized unit. CSV, XLSX, and JSON are supported, up to Experiment Signal's 50 MB local safety limit with row and column limits.
 
 | unit_id | treatment | primary_outcome | baseline_measure |
 |---|---|---:|---:|
 | U001 | Control | 4.2 | 3.9 |
 | U002 | Treatment | 5.1 | 4.1 |
 
-For a factorial design, use one column per randomized factor. Treatment labels should describe assignment, not observed exposure after noncompliance. Keep rows with missing outcomes so the audit can compare outcome-observation rates by assigned cell. See the [data guide](docs/data-guide.md).
+For a factorial design, use one column per randomized factor. Treatment labels should describe assignment, not observed exposure after noncompliance. Keep rows with missing outcomes so the audit can compare outcome-observation rates by assigned cell. The fictional demos and a starter template are in [`examples/`](examples/); the app also offers the starter template as a download. See the [data guide](docs/data-guide.md).
 
 ## Analysis contract
 
@@ -75,21 +78,32 @@ The app requires a named:
 - target population, assignment mechanism, analysis population, stopping rule, and guardrail;
 - optional pre-treatment covariates.
 
-Covariates are centered at their complete-sample means. The adjusted model interacts each treatment cell with each declared covariate, then standardizes cell predictions to those centered values. This follows the logic of agnostic regression adjustment for randomized experiments while keeping the specific cell contrast primary. See [methods](docs/methods.md).
+The contract also records four design confirmations: known random assignment, a pre-specified outcome and contrast, treatment before outcome measurement, and an outcome-independent stopping rule. The contract page refuses to save a zero minimum worthwhile effect. The communication-test, price-test, and feature-rollout templates prefill claim wording and outcome type only; they never invent data, columns, or thresholds.
 
-## Reading the decision status
+## Methods
 
-- **MEANINGFUL LIFT:** the full interval is above the positive minimum worthwhile effect.
-- **POTENTIAL HARM:** the full interval is below the negative boundary.
-- **BOUNDED SMALL:** the full interval lies inside the symmetric not-worth-acting band.
-- **UNCERTAIN:** the interval crosses a practical boundary.
-- **DIRECTIONAL ONLY:** no positive minimum worthwhile effect was declared, so the reading is only a zero-null significance statement, never presented as a decision. The contract page refuses to save a zero threshold.
-- **ASSOCIATION ONLY:** random assignment is not confirmed.
-- **DESIGN AT RISK:** a severe uniqueness, cell-size, or outcome-observation audit flag is present.
+1. **Audit:** assigned-cell counts, unique-ID problems, outcome observation rates by assigned cell, pairwise standardized mean differences for declared baseline measures, and complete-case retention. SMDs are magnitude diagnostics, not tests that randomization succeeded.
+2. **Model:** covariates are centered at their complete-sample means. The adjusted model interacts each treatment cell with each declared covariate, then standardizes cell predictions to those centered values. This follows the logic of agnostic regression adjustment for randomized experiments while keeping the specific cell contrast primary.
+3. **Uncertainty:** HC3 intervals are primary. An unadjusted binary primary contrast uses the Newcombe hybrid Wilson score interval; a covariate-adjusted binary contrast uses an HC3 linear probability model and flags adjusted probabilities outside 0–1.
+4. **Families and factorial terms:** all cell pairs form one comparison family with Holm-adjusted exploratory p-values; factorial main effects and interactions use a robust Type-II decomposition. The declared cell contrast stays primary.
+5. **Randomization inference:** for unadjusted two-arm, one-factor data, a fixed-seed permutation test targets Fisher's sharp null; it is withheld for other designs.
+6. **Decision:** the interval is compared with the declared minimum worthwhile effect (see below). No status is triggered by p < .05.
+
+See [methods](docs/methods.md).
+
+## Decision statuses
+
+- **MEANINGFUL LIFT**: the full interval is above the positive minimum worthwhile effect.
+- **POTENTIAL HARM**: the full interval is below the negative boundary.
+- **BOUNDED SMALL**: the full interval lies inside the symmetric not-worth-acting band.
+- **UNCERTAIN**: the interval crosses a practical boundary.
+- **DIRECTIONAL ONLY**: no positive minimum worthwhile effect was declared, so the reading is only a zero-null significance statement, never presented as a decision. The contract page refuses to save a zero threshold.
+- **ASSOCIATION ONLY**: random assignment is not confirmed.
+- **DESIGN AT RISK**: a severe uniqueness, cell-size, or outcome-observation audit flag is present.
 
 These are transparent evidence readings, not automatic launch approvals. Costs, guardrails, external validity, treatment fidelity, novelty effects, ethics, and operational feasibility remain outside the estimator. See the [decision guide](docs/decision-guide.md).
 
-## Evidence pack
+## Exports
 
 Excel, CSV-ZIP, and JSON exports include:
 
@@ -106,9 +120,7 @@ Unit-level identifiers, outcomes, covariates, fitted values, and residuals are e
 
 You need Python 3.10 or newer and a local copy of this folder.
 
-**macOS:** double-click `run_app.command`.
-
-**Windows:** double-click `run_app.bat`.
+**macOS:** double-click `run_app.command`. **Windows:** double-click `run_app.bat`.
 
 The first launch creates a private `.venv` and downloads open-source dependencies. Later launches reuse it. Or use a terminal:
 
@@ -119,7 +131,7 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-ExperimentSignal prefers local port `8592` and falls back to another free port on macOS. The macOS launcher honors the `EXPERIMENTSIGNAL_PORT`, `EXPERIMENTSIGNAL_NO_BROWSER`, and `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` environment variables; the Windows launcher honors `EXPERIMENTSIGNAL_PORT` only. Setting `EXPERIMENTSIGNAL_DEBUG=1` in the app's environment reveals technical error details on either platform. Uploads are always capped at ExperimentSignal's 50 MB safety limit, so `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` can only lower the Streamlit upload limit below 50 MB, never raise it.
+Experiment Signal prefers local port `8592` and falls back to another free port on macOS. The macOS launcher honors the `EXPERIMENTSIGNAL_PORT`, `EXPERIMENTSIGNAL_NO_BROWSER`, and `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` environment variables; the Windows launcher honors `EXPERIMENTSIGNAL_PORT` only. Setting `EXPERIMENTSIGNAL_DEBUG=1` in the app's environment reveals technical error details on either platform. Uploads are always capped at Experiment Signal's 50 MB safety limit, so `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` can only lower the Streamlit upload limit below 50 MB, never raise it.
 
 ### Docker
 
@@ -128,13 +140,17 @@ docker build -t experimentsignal .
 docker run --rm -p 8592:8592 experimentsignal
 ```
 
-Then open `http://127.0.0.1:8592`. The container runs as a non-root user.
+Then open `http://127.0.0.1:8592`. The container runs as a non-root user and includes a health check.
+
+## Privacy
+
+Data entered in the browser is processed by the local Streamlit process and remains there unless you download or otherwise move it; remove identifiers and fields not needed for the declared analysis before upload. If someone hosts Experiment Signal, that operator becomes responsible for transport security, authentication, logs, retention, and applicable privacy obligations. See [PRIVACY.md](PRIVACY.md).
 
 ## No install? Give this file to an AI
 
 [AI_ANALYST.md](AI_ANALYST.md) is a standalone analysis protocol for a capable AI assistant. It contains the same scope limits, calculations, honesty rules, and output structure. A local app is the more private option: a cloud AI sees whatever you upload or paste.
 
-## Development checks
+## Development
 
 ```bash
 python -m pip install -e ".[test]"
@@ -143,29 +159,55 @@ python -m ruff check .
 python -m build
 ```
 
-The suite checks known two-arm calculations, synthetic factorial recovery, HC3 interval structure, Holm multiplicity, deterministic randomization inference, SMD auditing, missing outcomes, decision boundaries, power calculations, safe imports/exports, example generation, and every Streamlit page.
+The analysis core (`experimentsignal`) installs without Streamlit or Plotly; the app needs the `ui` extra (`python -m pip install -e ".[ui]"`), and `requirements.txt` lists everything for the launchers and Docker. [Signal Hub](https://github.com/UlrikErlingsen/signal-hub) embeds the app through `experimentsignal.ui.render()`.
 
-## Relationship to the Signal suite
+The suite checks known two-arm calculations, synthetic factorial recovery, HC3 interval structure, Holm multiplicity, deterministic randomization inference, SMD auditing, missing outcomes, decision boundaries, power calculations, safe imports/exports, example generation, the shared Signal shell, every Streamlit page, and the Signal Hub contract (no Streamlit or Plotly import outside `ui/`, `render()` without a page config, namespaced keys, no repo-root files at runtime).
 
-- **[WorthSignal](https://github.com/UlrikErlingsen/customer-value-analytics)** asks what customers and relationships are worth.
-- **[SegmentSignal](https://github.com/UlrikErlingsen/customer-segmentation)** asks whether customers form stable, useful groups.
-- **[ChoiceSignal](https://github.com/UlrikErlingsen/conjoint-analysis)** asks how product attributes drive choice.
-- **[AdoptSignal](https://github.com/UlrikErlingsen/adoption-forecasting)** asks when a new product gets adopted.
-- **[PositionSignal](https://github.com/UlrikErlingsen/brand-positioning)** asks where brands sit relative to competitors.
-- **[AllocSignal](https://github.com/UlrikErlingsen/marketing-mix-allocation)** asks where the next marketing budget should go.
-- **[DriverSignal](https://github.com/UlrikErlingsen/survey-driver-analysis)** asks which measured experiences move with satisfaction and deserve a causal test.
-- **[GateSignal](https://github.com/UlrikErlingsen/launch-decision-gate)** asks whether a concept should receive the next bounded investment.
-- **[MeasureSignal](https://github.com/UlrikErlingsen/measurement-validation)** asks whether a multi-item score measures what you think it does.
-- **[TextSignal](https://github.com/UlrikErlingsen/open-text-analysis)** asks what recurring language patterns appear in open-ended responses.
-- **[TagSignal](https://github.com/UlrikErlingsen/pricing-analysis)** asks what price range is supported and how unit contribution changes, from assigned-price, historical, or willingness-to-pay evidence.
-- **[RecommendSignal](https://github.com/UlrikErlingsen/recommender-evaluation)** compares recommendation policies offline; its selected policy still needs an online randomized test here before anyone claims commercial or causal lift.
-- **[TraceSignal](https://github.com/UlrikErlingsen/journey-path-analysis)** asks how logged customer journeys actually unfold: transitions, path support, drop-off, and Markov removal sensitivity, with no causal channel credit.
-- **[TrackSignal](https://github.com/UlrikErlingsen/brand-tracking)** asks whether brand measures moved across tracking waves by more than a declared practical threshold.
-- **ExperimentSignal** asks whether an assigned treatment caused a practically meaningful change.
+## Where this fits in Signal
 
-The maintained public suite is listed at [ulrikerlingsen.com](https://ulrikerlingsen.com).
+Experiment Signal is where a causal question gets tested: Driver Signal flags measured experiences that deserve a causal test, and a policy chosen offline in Recommend Signal still needs an online randomized test here. It shares the suite's local-first, named-method, fictional-demo, portable-evidence, and explicit-boundary standard.
 
-## Method references
+- **Worth Signal** asks what customers and relationships are worth.
+- **Segment Signal** asks whether customers form stable, useful groups.
+- **Choice Signal** asks how product attributes drive choice.
+- **Adopt Signal** asks when a new product gets adopted.
+- **Position Signal** asks where brands sit relative to competitors.
+- **Alloc Signal** asks where the next marketing budget should go.
+- **Driver Signal** asks which measured experiences move with satisfaction and deserve a causal test.
+- **Gate Signal** asks whether a concept should receive the next bounded investment.
+- **Measure Signal** asks whether a multi-item score measures what you think it does.
+- **Text Signal** asks what recurring language patterns appear in open-ended responses.
+- **Tag Signal** asks what price range is supported and how unit contribution changes, from assigned-price, historical, or willingness-to-pay evidence.
+- **Recommend Signal** compares recommendation policies offline; its selected policy still needs an online randomized test here before anyone claims commercial or causal lift.
+- **Trace Signal** asks how logged customer journeys actually unfold: transitions, path support, drop-off, and Markov removal sensitivity, with no causal channel credit.
+- **Track Signal** asks whether brand measures moved across tracking waves by more than a declared practical threshold.
+- **Experiment Signal** asks whether an assigned treatment caused a practically meaningful change.
+
+| App | Asks |
+|---|---|
+| [Track Signal](https://github.com/UlrikErlingsen/brand-tracking) | Is the brand moving, or is the tracker just noisy? |
+| [Position Signal](https://github.com/UlrikErlingsen/brand-positioning) | Where do brands sit relative to competitors? |
+| [Prospect Signal](https://github.com/UlrikErlingsen/b2b-prospecting) | Which Norwegian companies fit the ideal customer? |
+| [Listen Signal](https://github.com/UlrikErlingsen/media-listening) | What are Norwegian media and social channels saying? |
+| [Influence Signal](https://github.com/UlrikErlingsen/influencer-campaigns) | Which creators delivered, and was every post labelled? |
+| [Season Signal](https://github.com/UlrikErlingsen/marketing-calendar) | What does the Norwegian marketing year look like, worked backwards? |
+| [Adopt Signal](https://github.com/UlrikErlingsen/adoption-forecasting) | When will a new product be adopted? |
+| [Worth Signal](https://github.com/UlrikErlingsen/customer-value-analytics) | What are customers and relationships worth? |
+| [Segment Signal](https://github.com/UlrikErlingsen/customer-segmentation) | Do customers form stable, useful groups? |
+| [Trace Signal](https://github.com/UlrikErlingsen/journey-path-analysis) | How do logged customer journeys actually unfold? |
+| [Recommend Signal](https://github.com/UlrikErlingsen/recommender-evaluation) | Which recommendation policy should be tested live? |
+| [Choice Signal](https://github.com/UlrikErlingsen/conjoint-analysis) | How do product attributes drive choice? |
+| [Driver Signal](https://github.com/UlrikErlingsen/survey-driver-analysis) | Which measured experiences move with satisfaction? |
+| [Measure Signal](https://github.com/UlrikErlingsen/measurement-validation) | Does a multi-item score have a defensible structure? |
+| [Text Signal](https://github.com/UlrikErlingsen/open-text-analysis) | What recurring patterns appear in open-ended responses? |
+| [Tag Signal](https://github.com/UlrikErlingsen/pricing-analysis) | What price range is supported, and how does profit move? |
+| [Experiment Signal](https://github.com/UlrikErlingsen/experiment-analysis) | Did the treatment cause a practically meaningful change? |
+| [Gate Signal](https://github.com/UlrikErlingsen/launch-decision-gate) | Does a concept deserve the next investment? |
+| [Alloc Signal](https://github.com/UlrikErlingsen/marketing-mix-allocation) | Where should the next marketing budget go? |
+
+The maintained public suite is listed at [ulrikerlingsen.com](https://ulrikerlingsen.com) and in [Signal Hub](https://github.com/UlrikErlingsen/signal-hub).
+
+## References
 
 - Neyman, J. (1923/1990). On the Application of Probability Theory to Agricultural Experiments. *Statistical Science, 5*(4), 465–472. https://doi.org/10.1214/ss/1177012031
 - Rubin, D. B. (1974). Estimating causal effects of treatments in randomized and nonrandomized studies. *Journal of Educational Psychology, 66*, 688–701. https://doi.org/10.1037/h0037350
@@ -179,8 +221,15 @@ The maintained public suite is listed at [ulrikerlingsen.com](https://ulrikerlin
 
 ## Originality and license
 
-ExperimentSignal is an independent implementation based on public statistical literature and original synthetic examples. It does not reproduce lecture slides, institution-specific cases, teaching diagrams, exercises, assessment questions, or proprietary wording. See [sources and originality](docs/sources-and-originality.md).
+Experiment Signal is an independent implementation based on public statistical literature and original synthetic examples. It does not reproduce lecture slides, institution-specific cases, teaching diagrams, exercises, assessment questions, or proprietary wording. See [sources and originality](docs/sources-and-originality.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [CITATION.cff](CITATION.cff).
 
-The software and documentation are free under **AGPL-3.0-or-later**. The license covers this project's expression, not ownership of the published statistical methods it implements.
+The software and documentation are free under **AGPL-3.0-or-later**. See [LICENSE](LICENSE). The license covers this project's expression, not ownership of the published statistical methods it implements.
 
 This application was developed with AI coding assistance and checked through source review, analytical fixtures, deterministic synthetic recovery, automated app tests, and visual inspection. Verify material decisions independently; no warranty is provided.
+
+---
+
+<p>
+  <img src="assets/experimentsignal-mark-64.png" width="20" height="20" alt="" align="absmiddle">
+  <strong>Experiment Signal</strong> is part of <a href="https://github.com/UlrikErlingsen/signal-hub"><strong>Signal</strong></a>, open marketing-evidence tools by <a href="https://ulrikerlingsen.com">Ulrik Erlingsen</a>.
+</p>

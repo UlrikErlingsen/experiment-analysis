@@ -1,4 +1,4 @@
-"""Deterministic, wholly fictional example data for ExperimentSignal."""
+"""Deterministic, wholly fictional example data for Experiment Signal."""
 
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ def contract_templates() -> dict[str, dict[str, object]]:
             "guardrail": "Revenue per visitor and refund rate should be checked separately",
             "note": (
                 "This tests one purchase outcome at declared price points. Deeper pricing questions—"
-                "price ladders, willingness to pay, elasticity—belong to TagSignal, the pricing sibling."
+                "price ladders, willingness to pay, elasticity—belong to Tag Signal, the pricing sibling."
             ),
         },
         "Feature rollout": {

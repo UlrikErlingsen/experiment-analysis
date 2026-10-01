@@ -52,6 +52,64 @@ def test_app_uses_shared_signal_theme_instead_of_pasted_styles() -> None:
     assert "friendly_message" in ui_source
 
 
+def test_readme_matches_suite_information_architecture() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    # Signal README template order: readers find the same section in the same place in every repo.
+    sections = [
+        "## Read this first",
+        "## Scope",
+        "## Try the demo in three minutes",
+        "## Data contract",
+        "## Analysis contract",
+        "## Methods",
+        "## Decision statuses",
+        "## Exports",
+        "## Run locally",
+        "## Privacy",
+        "## No install? Give this file to an AI",
+        "## Development",
+        "## Where this fits in Signal",
+        "## References",
+        "## Originality and license",
+    ]
+    positions = [readme.find(f"\n{heading}\n") for heading in sections]
+    assert all(position >= 0 for position in positions), dict(zip(sections, positions, strict=True))
+    assert positions == sorted(positions)
+    assert readme.startswith('<p align="center">\n  <img src="assets/experimentsignal-banner.png"')
+    assert "assets/experimentsignal-banner.svg" not in readme
+    assert "Signal-Decide-4f80a2" in readme  # family badge in the Decide 600 colour
+    assert "github.com/UlrikErlingsen/experiment-analysis/actions" in readme  # tests badge
+    assert "**Experiment Signal**" in readme
+    assert "ExperimentSignal" not in readme
+    assert "Creator Signal" not in readme
+    assert '<img src="assets/experimentsignal-mark-64.png"' in readme  # suite footer
+    # Honesty statements and scope limits survive the restructure.
+    assert "it does not manufacture randomization" in readme
+    assert "never uses `p < .05` as a rollout rule" in readme
+    assert "observational causal identification" in readme
+    assert "not automatic launch approvals" in readme
+    assert "Unit-level identifiers, outcomes, covariates, fitted values, and residuals are excluded" in readme
+    for path in (
+        "assets/experimentsignal-banner.png",
+        "assets/experimentsignal-mark-64.png",
+        "assets/experimentsignal-social.png",
+    ):
+        assert (ROOT / path).exists()
+    assert not (ROOT / "assets" / "experimentsignal-banner.svg").exists()
+
+
+def test_issue_templates_use_the_display_name_and_keep_data_safety() -> None:
+    templates = ROOT / ".github" / "ISSUE_TEMPLATE"
+    bug = (templates / "bug_report.yml").read_text(encoding="utf-8")
+    feature = (templates / "feature_request.yml").read_text(encoding="utf-8")
+    config = (templates / "config.yml").read_text(encoding="utf-8")
+    assert "Experiment Signal" in bug and "Experiment Signal" in feature
+    assert "Never attach real participant or customer data" in bug
+    assert "required: true" in bug
+    assert "github.com/UlrikErlingsen/experiment-analysis/blob/main/SECURITY.md" in config
+    assert "blank_issues_enabled: false" in config
+
+
 def test_runtime_scaffolding_is_private_and_uses_the_decide_family() -> None:
     config = (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
@@ -59,6 +117,7 @@ def test_runtime_scaffolding_is_private_and_uses_the_decide_family() -> None:
     workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
 
     assert "gatherUsageStats = false" in config
+    assert "maxUploadSize = 50" in config
     assert 'base = "light"' in config
     assert 'primaryColor = "#4f80a2"' in config  # Signal Decide family, 600 step
     assert "USER experimentsignal" in dockerfile
