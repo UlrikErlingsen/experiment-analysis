@@ -46,7 +46,7 @@ Experiment Signal never uses `p < .05` as a rollout rule. The declared treatment
 
 ## Try the demo in three minutes
 
-1. Start the app and click **Load fictional 2×2 demo** — or **Load fictional binary message demo** for a two-arm test with a binary recall outcome.
+1. Start the app: the fictional 2×2 demo is preloaded, so there is nothing to upload. Click **Load fictional binary message demo** for a two-arm test with a binary recall outcome, or **Load fictional 2×2 demo** to restore the default; uploading your own table replaces the demo.
 2. Review the saved design contract: two randomized factors, one continuous primary outcome, one baseline covariate, and a 0.40-point minimum worthwhile effect.
 3. Open the audit. Compare assigned counts, outcome observation rates, and baseline standardized differences across the four cells.
 4. Run the declared analysis. Read the primary adjusted contrast and its HC3 confidence interval before opening the test-statistic details.

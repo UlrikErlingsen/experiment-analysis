@@ -96,3 +96,59 @@ def test_demo_analysis_flow_produces_conservative_evidence_pack() -> None:
     at.radio[0].set_value("4 · Decision & export").run()
     assert not at.exception
     assert len(at.download_button) >= 4
+
+
+def test_fresh_run_preloads_the_fictional_factorial_demo() -> None:
+    at = app()
+    assert not at.exception
+    assert k("data") in at.session_state
+    assert at.session_state[k("source")]["source_filename"] == "experimentsignal-fictional-factorial-demo.csv"
+    assert at.session_state[k("contract")]["outcome"] == "activation_score_0_10"
+    assert any("fictional demo is loaded" in info.value for info in at.info)
+    # No button click is needed: the audit page shows demo-backed diagnostics and the analysis runs.
+    at.radio[0].set_value("2 · Data & randomization audit").run()
+    assert not at.exception
+    assert [metric.label for metric in at.metric][:2] == ["Assigned rows", "Treatment cells"]
+    at.button(key=k("run_analysis")).click().run()
+    assert not at.exception
+    assert at.session_state[k("decision")]["status"] == "MEANINGFUL LIFT"
+
+
+UPLOAD_SCRIPT = r"""
+import streamlit as st
+
+from experimentsignal.ui import render
+
+
+class _Upload:
+    name = "my-experiment.csv"
+
+    def getvalue(self):
+        rows = [f"U{i:03d},{'Treatment' if i % 2 else 'Control'},{4 + (i % 7) / 3:.2f}" for i in range(1, 41)]
+        return ("unit_id,treatment,primary_outcome\n" + "\n".join(rows) + "\n").encode("utf-8")
+
+
+original = st.file_uploader
+if st.session_state.get("test:upload"):
+    st.file_uploader = lambda *args, **kwargs: _Upload()
+try:
+    render()
+finally:
+    st.file_uploader = original
+"""
+
+
+def test_upload_replaces_the_preloaded_demo() -> None:
+    at = AppTest.from_string(UPLOAD_SCRIPT, default_timeout=30).run()
+    assert at.session_state[k("source")]["source_type"] == "deterministic synthetic demonstration"
+    at.session_state["test:upload"] = True
+    at.run()
+    assert not at.exception
+    assert at.session_state[k("source")]["source_filename"] == "my-experiment.csv"
+    assert list(at.session_state[k("data")].columns) == ["unit_id", "treatment", "primary_outcome"]
+    assert k("contract") not in at.session_state
+    assert not any("fictional demo is loaded" in info.value for info in at.info)
+    # The demo buttons still restore the fictional demo after an upload.
+    at.session_state["test:upload"] = False
+    at.button(key=k("load_demo")).click().run()
+    assert at.session_state[k("source")]["source_filename"] == "experimentsignal-fictional-factorial-demo.csv"

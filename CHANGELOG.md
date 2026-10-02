@@ -11,9 +11,11 @@ Signal brand refresh and Signal Hub entry point. The analysis, statistics, decis
 - The pairwise contrast chart uses the per-app Plotly template and the shared semantic colours (estimate, interval, practical-threshold band, zero line); its meaning is unchanged.
 - New banner, social preview and marks in `assets/`; the old banner SVG is removed. `.streamlit/config.toml` uses the family colours and keeps the 50 MB upload limit.
 - README follows the Signal template; bug-report and feature-request issue templates added.
+- Embedded Figtree font, no Google Fonts request: the theme ships the font as `signal_font.py`, so the app makes no outbound font request. Chart colours after the family accent follow a per-family contrast order.
 
 ### Signal Hub contract
 
+- Opens with the fictional demo preloaded: the deterministic 2×2 factorial demo and its design contract load on first run, so the audit and analysis work without an upload. The demo buttons restore or switch demos, and an upload replaces the demo.
 - `experimentsignal.ui` exposes `APP_INFO` and `render()`, so Signal Hub can embed the app; `app.py` is now a thin standalone entry point.
 - All session-state and widget keys are namespaced `experiment:` (including the page selector). Loading a demo, uploading a file or applying a template still re-seeds the contract form.
 - `streamlit` and `plotly` moved to a `ui` extra (also in `test`); the analysis core installs without them. `requirements.txt` still lists everything.

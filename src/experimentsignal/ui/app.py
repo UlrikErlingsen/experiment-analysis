@@ -85,9 +85,12 @@ def show_error(exc: Exception) -> None:
 
 
 def _ensure_state() -> None:
-    # No data is preloaded: the app starts empty until a fictional demo is loaded or a file is uploaded.
+    # On first run the fictional 2×2 factorial demo is preloaded, so the app opens on a working example.
+    # The sidebar demo buttons restore or switch demos, and an upload replaces the demo.
     st.session_state.setdefault(k("upload_fingerprint"), None)
     st.session_state.setdefault(k("contract_rev"), 0)
+    if k("data") not in st.session_state:
+        load_demo()
 
 
 def _contract_rev() -> int:
@@ -136,6 +139,11 @@ def load_binary_demo() -> None:
     }
     _replace_contract(binary_demo_defaults())
     reset_results()
+
+
+def _demo_active() -> bool:
+    source = st.session_state.get(k("source"), {})
+    return source.get("source_type") == "deterministic synthetic demonstration"
 
 
 def select_index(options: list[str], value: object, fallback: int = 0) -> int:
@@ -194,8 +202,13 @@ def render_welcome() -> None:
         "or repeated-measures designs, count/survival outcomes, adaptive stopping, noncompliance estimands, "
         "or observational causal identification."
     )
-    if k("data") not in st.session_state:
-        st.info("Load the fictional demonstration from the sidebar, or upload a CSV/XLSX/JSON table.")
+    if _demo_active():
+        st.info(
+            "A fictional demo is loaded, with its design contract saved: the 2×2 factorial demo opens by default, "
+            "and the sidebar switches to the binary message demo. Open the steps in the sidebar to audit it and run "
+            "the declared analysis. The data are deterministic synthetic records for a fictional service. Upload a "
+            "CSV/XLSX/JSON table to replace the demo."
+        )
 
 
 def render_contract() -> None:
