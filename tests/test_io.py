@@ -5,10 +5,13 @@ import json
 import zipfile
 
 import pandas as pd
+import pytest
 
 from experimentsignal.analysis import AnalysisConfig, analyze_experiment
 from experimentsignal.design import audit_experiment, classify_decision
+from experimentsignal.errors import DataProblem
 from experimentsignal.examples import demo_dataframe, demo_defaults
+import experimentsignal.io as eio
 from experimentsignal.io import (
     build_evidence_pack,
     dataframe_to_xlsx,
@@ -87,3 +90,34 @@ def test_evidence_exports_are_readable_and_exclude_raw_rows() -> None:
     with zipfile.ZipFile(BytesIO(evidence_to_csv_zip(pack))) as archive:
         assert "manifest.json" in archive.namelist()
         assert "pairwise_contrasts.csv" in archive.namelist()
+
+
+def test_tables_above_the_old_250000_row_limit_now_load() -> None:
+    rows = 250_001
+    raw = ("arm,outcome\n" + "A,1\nB,2\n" * (rows // 2) + "A,1\n").encode()
+    frame, _ = read_table(raw, "large.csv")
+    assert len(frame) == rows
+    assert eio.MAX_ROWS >= 5_000_000
+    assert eio.MAX_UPLOAD_BYTES == eio.MAX_UPLOAD_MB * 1024 * 1024 == 1000 * 1024 * 1024
+
+
+def test_row_and_byte_limits_name_the_new_caps(monkeypatch) -> None:
+    raw = pd.DataFrame({"arm": ["A", "B"] * 6, "outcome": range(12)}).to_csv(index=False).encode()
+    monkeypatch.setattr(eio, "MAX_ROWS", 10)
+    with pytest.raises(DataProblem, match="at most 10 rows per analysis"):
+        read_table(raw, "study.csv")
+    monkeypatch.setattr(eio, "MAX_UPLOAD_BYTES", 8)
+    with pytest.raises(DataProblem, match="1,000 MB local safety limit"):
+        read_table(raw, "study.csv")
+
+
+def test_workbooks_and_json_have_their_own_smaller_caps(monkeypatch) -> None:
+    frame = pd.DataFrame({"arm": ["A", "B"], "outcome": [1.0, 2.0]})
+    monkeypatch.setattr(eio, "MAX_XLSX_MB", 0)
+    monkeypatch.setattr(eio, "MAX_JSON_MB", 0)
+    with pytest.raises(DataProblem, match="Excel workbooks above 0 MB.*Save the sheet as CSV"):
+        read_table(dataframe_to_xlsx(frame), "study.xlsx")
+    with pytest.raises(DataProblem, match="JSON files above 0 MB.*Save the table as CSV"):
+        read_table(frame.to_json(orient="records").encode(), "study.json")
+    loaded, _ = read_table(frame.to_csv(index=False).encode(), "study.csv")
+    assert len(loaded) == 2

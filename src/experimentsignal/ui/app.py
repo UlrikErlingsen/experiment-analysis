@@ -23,7 +23,7 @@ from experimentsignal.analysis import (
     plan_two_arm_binary_sample,
     plan_two_arm_sample,
 )
-from experimentsignal.design import arm_labels, audit_experiment, classify_decision, ordered_levels
+from experimentsignal.design import arm_categorical, audit_experiment, classify_decision, column_roles, ordered_levels
 from experimentsignal.errors import DataProblem, friendly_message
 from experimentsignal.examples import (
     binary_demo_dataframe,
@@ -211,6 +211,21 @@ def render_welcome() -> None:
         )
 
 
+def _data_identity(data: pd.DataFrame) -> tuple[object, ...]:
+    source = st.session_state.get(k("source")) or {}
+    return (id(data), len(data), source.get("source_sha256"))
+
+
+def _column_roles(data: pd.DataFrame) -> dict[str, list[str]]:
+    """Column roles for the contract form, computed once per loaded table rather than on every rerun."""
+    marker = (_data_identity(data), tuple(map(str, data.columns)))
+    cached = st.session_state.get(k("column_roles"))
+    if cached is None or cached[0] != marker:
+        cached = (marker, column_roles(data))
+        st.session_state[k("column_roles")] = cached
+    return cached[1]
+
+
 def render_contract() -> None:
     sig.header(
         "Step 1",
@@ -249,12 +264,11 @@ def render_contract() -> None:
         key=k(f"c{rev}:outcome_type"),
         help="Binary outcomes can be encoded with any two labels; you will declare which label means success.",
     )
-    numeric_columns = [column for column in data.columns if pd.to_numeric(data[column], errors="coerce").notna().sum() >= 2]
-    binary_columns = [column for column in data.columns if data[column].dropna().astype(str).nunique() == 2]
+    roles = _column_roles(data)
+    numeric_columns = roles["numeric"]
+    binary_columns = roles["binary"]
     outcome_candidates = numeric_columns if outcome_type == "continuous" else binary_columns
-    factor_candidates = [
-        column for column in data.columns if 2 <= data[column].dropna().astype(str).nunique() <= 8
-    ]
+    factor_candidates = roles["factor"]
     unit_options = ["(use row number)", *map(str, data.columns)]
     unit_value = current.get("unit") or "(use row number)"
     col1, col2 = st.columns(2)
@@ -308,7 +322,7 @@ def render_contract() -> None:
         st.info("Choose at least one treatment factor to define the primary contrast.")
         return
     try:
-        labels = ordered_levels(arm_labels(data.dropna(subset=factors), factors))
+        labels = ordered_levels(arm_categorical(data[factors].dropna(), factors))
     except Exception as exc:
         show_error(exc)
         return
@@ -444,6 +458,25 @@ def render_contract() -> None:
         st.success("Design contract saved. Continue to the randomization audit.")
 
 
+def _cached_audit(data: pd.DataFrame, contract: dict[str, object]):
+    """Audit once per loaded table and saved contract; widget changes on the page must not re-scan millions of rows."""
+    marker = (_data_identity(data), repr(sorted(contract.items())))
+    cached = st.session_state.get(k("audit_cache"))
+    if cached is None or cached[0] != marker:
+        audit = audit_experiment(
+            data,
+            unit=contract.get("unit"),
+            outcome=str(contract["outcome"]),
+            factors=list(contract["factors"]),
+            covariates=list(contract.get("covariates", [])),
+            outcome_type=str(contract.get("outcome_type", "continuous")),
+            success_value=contract.get("success_value"),
+        )
+        cached = (marker, audit)
+        st.session_state[k("audit_cache")] = cached
+    return cached[1]
+
+
 def render_audit() -> None:
     sig.header(
         "Step 2",
@@ -460,15 +493,7 @@ def render_audit() -> None:
         st.info("Complete the data roles and primary contrast on the design-contract page.")
         return
     try:
-        audit = audit_experiment(
-            data,
-            unit=contract.get("unit"),
-            outcome=str(contract["outcome"]),
-            factors=list(contract["factors"]),
-            covariates=list(contract.get("covariates", [])),
-            outcome_type=str(contract.get("outcome_type", "continuous")),
-            success_value=contract.get("success_value"),
-        )
+        audit = _cached_audit(data, contract)
     except Exception as exc:
         show_error(exc)
         return
@@ -532,7 +557,8 @@ def render_audit() -> None:
                     else None
                 ),
             )
-            analysis = analyze_experiment(data, config)
+            with st.spinner("Estimating the declared contrasts…"):
+                analysis = analyze_experiment(data, config)
             decision = classify_decision(
                 estimate=float(analysis.primary["estimate"]),
                 ci_low=float(analysis.primary["ci_low"]),
@@ -675,6 +701,8 @@ def render_effects() -> None:
         full_width(st.dataframe, diagnostics, hide_index=True)
         if analysis.permutation:
             st.markdown("**Randomization inference**")
+            if analysis.permutation.get("subsample_note"):
+                sig.note("info", str(analysis.permutation["subsample_note"]))
             st.json(analysis.permutation)
             st.caption("This test targets Fisher's sharp null, which differs from a zero average treatment effect.")
         else:
@@ -925,7 +953,8 @@ def _handle_upload(upload) -> None:
     if fingerprint == st.session_state.get(k("upload_fingerprint")):
         return
     try:
-        frame, source = read_table(raw, upload.name)
+        with st.spinner("Reading the file…"):
+            frame, source = read_table(raw, upload.name)
         st.session_state[k("data")] = frame
         st.session_state[k("source")] = source
         st.session_state[k("upload_fingerprint")] = fingerprint

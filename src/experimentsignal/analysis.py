@@ -16,8 +16,12 @@ from statsmodels.stats.power import NormalIndPower, TTestIndPower
 from statsmodels.stats.proportion import proportion_effectsize
 from statsmodels.stats.anova import anova_lm
 
-from .design import arm_labels, encode_binary_outcome, ordered_levels
+from .design import arm_categorical, encode_binary_outcome, ordered_levels
 from .errors import DataProblem
+
+
+# The permutation test costs (rows x permutations); above this many complete rows it uses a seeded subsample.
+PERMUTATION_MAX_ROWS = 100_000
 
 
 @dataclass(frozen=True)
@@ -71,21 +75,24 @@ def _prepare(frame: pd.DataFrame, config: AnalysisConfig) -> tuple[pd.DataFrame,
     for old_name in config.covariates:
         work[rename[old_name]] = pd.to_numeric(work[rename[old_name]], errors="coerce")
     factor_names = [rename[name] for name in config.factors]
-    for name in factor_names:
-        work[name] = work[name].astype("string")
     complete_columns = ["outcome", *factor_names, *[rename[name] for name in config.covariates]]
-    work = work.dropna(subset=complete_columns).copy()
+    work = work.dropna(subset=complete_columns)
     if len(work) < 20:
         raise DataProblem("Fewer than 20 complete rows remain; this release withholds model-based inference.")
     for name in factor_names:
-        levels = ordered_levels(work[name])
+        # Categorical factors keep millions of rows as integer codes, and the formula engine reads the codes
+        # directly instead of inspecting every string. Categories are in plain sorted order, as before.
+        labels = work[name].astype("string")
+        levels = sorted(pd.unique(labels).tolist())
         if len(levels) < 2:
             raise DataProblem(f"Treatment factor ‘{name}’ has fewer than two observed levels.")
         if len(levels) > 8:
             raise DataProblem(f"Treatment factor ‘{name}’ has more than eight levels; check that it is really a factor.")
-    original_factor_names = list(config.factors)
-    temp_for_arms = work.rename(columns={rename[name]: name for name in original_factor_names})
-    work["arm"] = arm_labels(temp_for_arms, original_factor_names).to_numpy()
+        work[name] = pd.Categorical(labels, categories=levels)
+    arms = arm_categorical(
+        work[factor_names].set_axis(list(config.factors), axis=1), list(config.factors)
+    )
+    work["arm"] = arms
     for index, old_name in enumerate(config.covariates, start=1):
         new_name = f"covariate_{index}"
         sd = float(work[new_name].std(ddof=1))
@@ -215,7 +222,9 @@ def _contrast_row(
 
 
 def _term_tests(work: pd.DataFrame, config: AnalysisConfig) -> pd.DataFrame:
-    factor_terms = " * ".join(f"C(factor_{index})" for index in range(1, len(config.factors) + 1))
+    # Factors are already pandas categoricals, so the formula names them bare: patsy then reads the integer codes
+    # directly, whereas wrapping them in C() makes it convert every row one by one.
+    factor_terms = " * ".join(f"factor_{index}" for index in range(1, len(config.factors) + 1))
     covariate_terms = " + ".join(f"covariate_{index}" for index in range(1, len(config.covariates) + 1))
     formula = "outcome ~ " + factor_terms + (" + " + covariate_terms if covariate_terms else "")
     model = smf.ols(formula, data=work).fit()
@@ -227,7 +236,7 @@ def _term_tests(work: pd.DataFrame, config: AnalysisConfig) -> pd.DataFrame:
     residual_ss = float(table.loc[table["term"] == "Residual", "sum_sq"].iloc[0])
     table = table[table["term"] != "Residual"].copy()
     table["partial_eta_squared_descriptive"] = table["sum_sq"] / (table["sum_sq"] + residual_ss)
-    declared_names = {f"C(factor_{index})": name for index, name in enumerate(config.factors, start=1)}
+    declared_names = {f"factor_{index}": name for index, name in enumerate(config.factors, start=1)}
     declared_names.update({f"covariate_{index}": name for index, name in enumerate(config.covariates, start=1)})
     table["term"] = table["term"].map(
         lambda term: ":".join(declared_names.get(part, part) for part in str(term).split(":"))
@@ -242,15 +251,32 @@ def _permutation_test(work: pd.DataFrame, config: AnalysisConfig) -> dict[str, o
     if config.control_arm not in levels or config.treatment_arm not in levels:
         return None
     values = work["outcome"].to_numpy(float)
-    labels = work["arm"].to_numpy(str)
-    observed = float(values[labels == config.treatment_arm].mean() - values[labels == config.control_arm].mean())
+    treated = (work["arm"] == config.treatment_arm).to_numpy()
     rng = np.random.default_rng(config.seed)
+    subsample_note = None
+    if len(values) > PERMUTATION_MAX_ROWS:
+        # Each permutation touches every row. Above the cap, the test runs on a seeded random subsample that keeps
+        # each arm's share; the sharp null holds for every unit, so the test stays valid, only less powerful.
+        keep = np.sort(rng.choice(len(values), size=PERMUTATION_MAX_ROWS, replace=False))
+        subsample_note = (
+            f"Run on a seeded random subsample of {PERMUTATION_MAX_ROWS:,} of {len(values):,} complete rows to keep "
+            "the permutation step fast. The HC3 interval and every other result use all rows."
+        )
+        values = values[keep]
+        treated = treated[keep]
+        if treated.all() or not treated.any():
+            return None
+    observed = float(values[treated].mean() - values[~treated].mean())
+    total = float(values.sum())
+    n_treated = int(treated.sum())
+    n_control = len(values) - n_treated
     extreme = 0
     for _ in range(config.permutations):
-        permuted = rng.permutation(labels)
-        effect = float(values[permuted == config.treatment_arm].mean() - values[permuted == config.control_arm].mean())
+        permuted = rng.permutation(treated)
+        treated_sum = float(values[permuted].sum())
+        effect = treated_sum / n_treated - (total - treated_sum) / n_control
         extreme += int(abs(effect) >= abs(observed) - 1e-12)
-    return {
+    result: dict[str, object] = {
         "sharp_null": "No unit's outcome changes under either treatment",
         "statistic": (
             "absolute difference in success proportions"
@@ -261,7 +287,11 @@ def _permutation_test(work: pd.DataFrame, config: AnalysisConfig) -> dict[str, o
         "permutations": int(config.permutations),
         "seed": int(config.seed),
         "two_sided_p_value": float((extreme + 1) / (config.permutations + 1)),
+        "rows_used": int(len(values)),
     }
+    if subsample_note:
+        result["subsample_note"] = subsample_note
+    return result
 
 
 def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisResult:
@@ -277,7 +307,9 @@ def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisR
 
     covariate_terms = " + ".join(f"covariate_{index}" for index in range(1, len(config.covariates) + 1))
     formula = "outcome ~ C(arm)" + (f" * ({covariate_terms})" if covariate_terms else "")
-    ordinary = smf.ols(formula, data=work).fit()
+    # `arm` is a pandas categorical, so the bare name fits exactly the C(arm) model while letting patsy read the
+    # integer codes instead of converting millions of labels row by row. The record keeps the C(arm) notation.
+    ordinary = smf.ols(formula.replace("C(arm)", "arm"), data=work).fit()
     if ordinary.df_resid <= 0 or int(ordinary.model.rank) < len(ordinary.params):
         raise DataProblem("The adjusted model is rank deficient. Reduce factors/covariates or collect more complete cells.")
     use_newcombe = config.outcome_type == "binary" and not config.covariates
@@ -369,6 +401,10 @@ def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisR
                 "At least one adjusted probability falls outside 0–1; treat the linear adjustment as locally descriptive."
             )
 
+    permutation = _permutation_test(work, config)
+    if permutation and permutation.get("subsample_note"):
+        warnings.append("Randomization test: " + str(permutation["subsample_note"]))
+
     welch_p = np.nan
     if config.outcome_type == "continuous":
         try:
@@ -402,7 +438,7 @@ def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisR
             "success_value": config.success_value if config.outcome_type == "binary" else None,
         },
         primary=primary,
-        permutation=_permutation_test(work, config),
+        permutation=permutation,
         warnings=tuple(warnings),
         model_formula=formula,
     )

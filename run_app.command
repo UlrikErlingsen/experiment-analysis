@@ -69,7 +69,7 @@ PY
 fi
 
 URL="http://127.0.0.1:${PORT}"
-MAX_UPLOAD_MB="${EXPERIMENTSIGNAL_MAX_UPLOAD_MB:-50}"
+MAX_UPLOAD_MB="${EXPERIMENTSIGNAL_MAX_UPLOAD_MB:-1000}"
 
 echo "Starting Experiment Signal at ${URL}..."
 python -m streamlit run app.py \

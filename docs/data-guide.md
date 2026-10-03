@@ -49,4 +49,4 @@ Do not control for mediators, treatment receipt, post-treatment satisfaction, do
 - XLSX: the first worksheet is read; macros are not executed.
 - JSON: an array of row objects or an object with a `data` array.
 
-Uploads are limited to 50 MB, 250,000 rows, and 500 columns. Remove direct identifiers, contact data, free text, precise locations, and unnecessary sensitive attributes before upload.
+Uploads are limited to 1000 MB for CSV (50 MB for XLSX and 250 MB for JSON, which are slower and heavier to parse), 5,000,000 rows, and 500 columns. For very large tables, CSV with only the columns the analysis needs is fastest. Remove direct identifiers, contact data, free text, precise locations, and unnecessary sensitive attributes before upload.

@@ -13,5 +13,6 @@ if not exist .venv\.experimentsignal-requirements-%REQ_HASH% (
   type nul > .venv\.experimentsignal-requirements-%REQ_HASH%
 )
 if not defined EXPERIMENTSIGNAL_PORT set EXPERIMENTSIGNAL_PORT=8592
-python -m streamlit run app.py --server.headless=false --server.address=127.0.0.1 --server.port=%EXPERIMENTSIGNAL_PORT% --server.maxUploadSize=50 --server.fileWatcherType=none --browser.gatherUsageStats=false
+if not defined EXPERIMENTSIGNAL_MAX_UPLOAD_MB set EXPERIMENTSIGNAL_MAX_UPLOAD_MB=1000
+python -m streamlit run app.py --server.headless=false --server.address=127.0.0.1 --server.port=%EXPERIMENTSIGNAL_PORT% --server.maxUploadSize=%EXPERIMENTSIGNAL_MAX_UPLOAD_MB% --server.fileWatcherType=none --browser.gatherUsageStats=false
 

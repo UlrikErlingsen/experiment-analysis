@@ -226,3 +226,39 @@ def test_binary_power_planner_uses_absolute_probability_lift() -> None:
     assert plan["treatment_rate"] == pytest.approx(0.13)
     assert plan["complete_total"] > 1000
     assert plan["assign_total"] > plan["complete_total"]
+
+
+def test_large_permutation_step_uses_a_recorded_seeded_subsample(monkeypatch) -> None:
+    import experimentsignal.analysis as analysis_module
+
+    monkeypatch.setattr(analysis_module, "PERMUTATION_MAX_ROWS", 40)
+    config = AnalysisConfig(
+        outcome="outcome",
+        factors=("arm",),
+        covariates=(),
+        control_arm="arm=Control",
+        treatment_arm="arm=Treatment",
+        permutations=199,
+    )
+    first = analyze_experiment(two_arm_frame(), config)
+    second = analyze_experiment(two_arm_frame(), config)
+    assert first.permutation == second.permutation
+    assert first.permutation["rows_used"] == 40
+    assert "subsample of 40 of 60 complete rows" in first.permutation["subsample_note"]
+    assert any(warning.startswith("Randomization test:") for warning in first.warnings)
+    # The interval and estimate still use every complete row.
+    assert first.diagnostics["complete_analysis_rows"] == 60
+
+
+def test_small_permutation_step_uses_every_row_without_a_note() -> None:
+    config = AnalysisConfig(
+        outcome="outcome",
+        factors=("arm",),
+        covariates=(),
+        control_arm="arm=Control",
+        treatment_arm="arm=Treatment",
+        permutations=99,
+    )
+    result = analyze_experiment(two_arm_frame(), config)
+    assert result.permutation["rows_used"] == 60
+    assert "subsample_note" not in result.permutation

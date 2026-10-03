@@ -57,7 +57,7 @@ The example is deterministic synthetic data for a fictional service. It represen
 
 ## Data contract
 
-Use one row per randomized unit. CSV, XLSX, and JSON are supported, up to Experiment Signal's 50 MB local safety limit with row and column limits.
+Use one row per randomized unit. CSV files up to 1000 MB and 5,000,000 rows are supported locally (500 columns at most); Excel workbooks up to 50 MB and JSON up to 250 MB, because those formats are slower and heavier to parse — save larger tables as CSV. Estimation and the audit use every row; only the optional sharp-null permutation test runs on a seeded random subsample of 100,000 complete rows when there are more, and says so in the app and the evidence pack.
 
 | unit_id | treatment | primary_outcome | baseline_measure |
 |---|---|---:|---:|
@@ -131,7 +131,7 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-Experiment Signal prefers local port `8592` and falls back to another free port on macOS. The macOS launcher honors the `EXPERIMENTSIGNAL_PORT`, `EXPERIMENTSIGNAL_NO_BROWSER`, and `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` environment variables; the Windows launcher honors `EXPERIMENTSIGNAL_PORT` only. Setting `EXPERIMENTSIGNAL_DEBUG=1` in the app's environment reveals technical error details on either platform. Uploads are always capped at Experiment Signal's 50 MB safety limit, so `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` can only lower the Streamlit upload limit below 50 MB, never raise it.
+Experiment Signal prefers local port `8592` and falls back to another free port on macOS. Both launchers honor `EXPERIMENTSIGNAL_PORT` and `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` (the Streamlit upload limit in MB, default 1000); the macOS launcher also honors `EXPERIMENTSIGNAL_NO_BROWSER`. Setting `EXPERIMENTSIGNAL_DEBUG=1` in the app's environment reveals technical error details on either platform. The app itself never accepts more than 1000 MB, so `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` can lower the limit (for example on a small shared machine) but not raise it.
 
 ### Docker
 
@@ -140,7 +140,7 @@ docker build -t experimentsignal .
 docker run --rm -p 8592:8592 experimentsignal
 ```
 
-Then open `http://127.0.0.1:8592`. The container runs as a non-root user and includes a health check.
+Then open `http://127.0.0.1:8592`. The container runs as a non-root user and includes a health check. The image sets `STREAMLIT_SERVER_MAX_UPLOAD_SIZE=1000`; pass `-e STREAMLIT_SERVER_MAX_UPLOAD_SIZE=200` (or any smaller value) to `docker run` to lower the upload limit for a hosted copy.
 
 ## Privacy
 

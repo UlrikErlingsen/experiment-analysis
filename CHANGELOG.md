@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3.0 — 2026-10-03
+
+Larger datasets for large organisations. Estimates, intervals, decision rules and the evidence-pack schema are unchanged; on the fictional demos every number is identical to 1.2.0.
+
+### Larger datasets
+
+- Larger datasets: uploads up to 1000 MB locally (was 50 MB) and up to 5,000,000 rows (was 250,000). One constant, `MAX_UPLOAD_MB`, drives the in-code check, and `.streamlit/config.toml`, both launchers and the Docker image default to the same 1000 MB.
+- Excel workbooks keep a 50 MB cap and JSON gets a 250 MB cap, because both build a Python object per cell while parsing; the message says to save larger tables as CSV. CSV parsing stops one row past the row limit instead of building an oversized table first.
+- The sharp-null permutation test runs on a seeded random subsample of 100,000 complete rows when there are more, so it stays within seconds; the result carries `rows_used` and a `subsample_note`, the note is shown on the effects page, and it is repeated in the analysis warnings and the evidence pack. Below 100,000 rows it uses every row, exactly as before. The HC3 estimates, intervals, audit and term tests always use all rows.
+- Faster and leaner on big tables: treatment cells and factors are pandas categoricals, which the model formula reads as integer codes (a 1,000,000-row 2×2 analysis with a covariate drops from about 11 s to under 2 s; 5,000,000 rows take about 8 s); the audit no longer copies the whole uploaded table; column roles for the design-contract form are computed once per distinct value and cached per loaded table, and the audit is cached per table and saved contract, so widget changes no longer re-scan every row; uploads are parsed without an extra copy. Reading and analysis show a spinner.
+- `run_app.bat` now honors `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` like `run_app.command` (default 1000 on both); the Dockerfile sets `STREAMLIT_SERVER_MAX_UPLOAD_SIZE=1000`.
+
+### Suite
+
+- Suite: Rival, Reach, Learn and Blueprint Signal added to the suite table.
+
 ## 1.2.0 — 2026-10-02
 
 Signal brand refresh and Signal Hub entry point. The analysis, statistics, decision rules, data contract and exports are unchanged.

@@ -93,6 +93,8 @@ For unadjusted data with exactly one two-level factor, treatment labels are perm
 
 `p = (1 + number(|T_perm| ≥ |T_observed|)) / (B + 1)`
 
+Each permutation touches every row, so with more than 100,000 complete rows the test runs on a seeded random subsample of 100,000 rows drawn without replacement. Under the sharp null every unit's outcome is fixed, so the subsample test is still valid, only less powerful; the HC3 estimate, interval and every other result use all rows. The evidence pack records `rows_used` and a `subsample_note`, and the note is repeated in the analysis warnings.
+
 The fixed seed makes the calculation reproducible. The null is Fisher's sharp null that every unit's outcome would be identical under either assignment. That is stronger than a zero average treatment effect. Covariate adjustment, factorial assignment, blocking, clustering, and restricted randomization require design-matched permutation procedures and are withheld.
 
 ## Missing data

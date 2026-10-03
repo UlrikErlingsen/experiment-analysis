@@ -3,6 +3,7 @@ from pathlib import Path
 from streamlit.testing.v1 import AppTest
 
 from experimentsignal import __version__
+from experimentsignal.io import MAX_UPLOAD_MB
 
 
 ROOT = Path(__file__).parents[1]
@@ -117,7 +118,7 @@ def test_runtime_scaffolding_is_private_and_uses_the_decide_family() -> None:
     workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
 
     assert "gatherUsageStats = false" in config
-    assert "maxUploadSize = 50" in config
+    assert f"maxUploadSize = {MAX_UPLOAD_MB}" in config
     assert 'base = "light"' in config
     assert 'primaryColor = "#4f80a2"' in config  # Signal Decide family, 600 step
     assert "USER experimentsignal" in dockerfile
@@ -126,3 +127,16 @@ def test_runtime_scaffolding_is_private_and_uses_the_decide_family() -> None:
     assert "--browser.gatherUsageStats=false" in launcher
     assert "EXPERIMENTSIGNAL_PORT" in launcher
     assert 'python-version: ["3.10", "3.11", "3.12", "3.13"]' in workflow
+
+
+def test_every_launcher_defaults_to_the_in_code_upload_cap() -> None:
+    windows = (ROOT / "run_app.bat").read_text(encoding="utf-8")
+    macos = (ROOT / "run_app.command").read_text(encoding="utf-8")
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert MAX_UPLOAD_MB == 1000
+    assert f"set EXPERIMENTSIGNAL_MAX_UPLOAD_MB={MAX_UPLOAD_MB}" in windows
+    assert "--server.maxUploadSize=%EXPERIMENTSIGNAL_MAX_UPLOAD_MB%" in windows
+    assert f'MAX_UPLOAD_MB="${{EXPERIMENTSIGNAL_MAX_UPLOAD_MB:-{MAX_UPLOAD_MB}}}"' in macos
+    assert '--server.maxUploadSize="$MAX_UPLOAD_MB"' in macos
+    assert f"STREAMLIT_SERVER_MAX_UPLOAD_SIZE={MAX_UPLOAD_MB}" in dockerfile
+    assert "--server.maxUploadSize" not in dockerfile

@@ -19,8 +19,13 @@ from . import __version__
 from .errors import DataProblem
 
 
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024
-MAX_ROWS = 250_000
+# One cap for the whole app: the launchers, Docker image and .streamlit/config.toml all default to the same 1000 MB.
+MAX_UPLOAD_MB = 1000
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+# Workbooks and JSON build a Python object per cell while parsing, so they keep smaller caps than CSV.
+MAX_XLSX_MB = 50
+MAX_JSON_MB = 250
+MAX_ROWS = 5_000_000
 MAX_COLUMNS = 500
 ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".json"}
 
@@ -29,7 +34,10 @@ def _validate_shape(frame: pd.DataFrame) -> pd.DataFrame:
     if frame.empty:
         raise DataProblem("The uploaded table has no data rows.")
     if len(frame) > MAX_ROWS:
-        raise DataProblem(f"This release accepts at most {MAX_ROWS:,} rows per analysis.")
+        raise DataProblem(
+            f"This release accepts at most {MAX_ROWS:,} rows per analysis. "
+            "Filter the file to one experiment population or split it, then upload again."
+        )
     if len(frame.columns) > MAX_COLUMNS:
         raise DataProblem(f"This release accepts at most {MAX_COLUMNS:,} columns.")
     names = [str(column).strip() for column in frame.columns]
@@ -37,7 +45,7 @@ def _validate_shape(frame: pd.DataFrame) -> pd.DataFrame:
         raise DataProblem("Every column needs a non-empty name.")
     if len(names) != len(set(names)):
         raise DataProblem("Column names must be unique.")
-    frame = frame.copy()
+    # The frame was just parsed and is owned here, so rename in place instead of copying a large table.
     frame.columns = names
     return frame
 
@@ -47,14 +55,25 @@ def read_table(raw: bytes, filename: str) -> tuple[pd.DataFrame, dict[str, str]]
     if not raw:
         raise DataProblem("The uploaded file is empty.")
     if len(raw) > MAX_UPLOAD_BYTES:
-        raise DataProblem("The uploaded file exceeds Experiment Signal's 50 MB local safety limit.")
+        raise DataProblem(f"The uploaded file exceeds Experiment Signal's {MAX_UPLOAD_MB:,} MB local safety limit.")
     extension = Path(filename).suffix.casefold()
     if extension not in ALLOWED_EXTENSIONS:
         raise DataProblem("Use CSV, XLSX, or JSON for experiment data.")
+    if extension == ".xlsx" and len(raw) > MAX_XLSX_MB * 1024 * 1024:
+        raise DataProblem(
+            f"Excel workbooks above {MAX_XLSX_MB} MB are too slow to parse. Save the sheet as CSV, "
+            f"which Experiment Signal reads up to {MAX_UPLOAD_MB:,} MB."
+        )
+    if extension == ".json" and len(raw) > MAX_JSON_MB * 1024 * 1024:
+        raise DataProblem(
+            f"JSON files above {MAX_JSON_MB} MB use too much memory to parse. Save the table as CSV, "
+            f"which Experiment Signal reads up to {MAX_UPLOAD_MB:,} MB."
+        )
     sheet = ""
     try:
         if extension == ".csv":
-            frame = pd.read_csv(BytesIO(raw))
+            # Stop parsing one row past the limit instead of building an oversized table first.
+            frame = pd.read_csv(BytesIO(raw), nrows=MAX_ROWS + 1)
         elif extension == ".xlsx":
             book = pd.ExcelFile(BytesIO(raw), engine="openpyxl")
             if not book.sheet_names:

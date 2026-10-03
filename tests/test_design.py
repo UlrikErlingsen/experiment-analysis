@@ -174,3 +174,25 @@ def test_zero_minimum_effect_degenerates_to_directional_only_not_meaningful_lift
 
 def test_demo_contract_declares_a_positive_minimum_worthwhile_effect() -> None:
     assert float(demo_defaults()["minimum_effect"]) > 0
+
+
+def test_column_roles_and_categorical_arms_match_text_semantics() -> None:
+    from experimentsignal.design import arm_categorical, column_roles, ordered_levels
+
+    frame = pd.DataFrame(
+        {
+            "unit": [f"U{index}" for index in range(12)],
+            "arm": ["B", "A", None] * 4,
+            "flag": ["yes", "no"] * 6,
+            "mixed": [1, "1", 2, "2"] * 3,
+            "score": [str(value) for value in range(12)],
+            "constant": [7.0] * 12,
+        }
+    )
+    roles = column_roles(frame)
+    assert roles["numeric"] == ["mixed", "score", "constant"]
+    assert roles["binary"] == ["arm", "flag", "mixed"]
+    assert roles["factor"] == ["arm", "flag", "mixed"]
+    arms = arm_categorical(frame, ["arm", "flag"])
+    assert arms.tolist()[:3] == ["arm=B · flag=yes", "arm=A · flag=no", "arm=(missing) · flag=yes"]
+    assert ordered_levels(arms) == sorted(set(arms.tolist()), key=str.casefold)
