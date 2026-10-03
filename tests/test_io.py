@@ -9,7 +9,8 @@ import pytest
 
 from experimentsignal.analysis import AnalysisConfig, analyze_experiment
 from experimentsignal.design import audit_experiment, classify_decision
-from experimentsignal.errors import DataProblem
+from experimentsignal import limits
+from experimentsignal.errors import DataProblem, friendly_message
 from experimentsignal.examples import demo_dataframe, demo_defaults
 import experimentsignal.io as eio
 from experimentsignal.io import (
@@ -92,32 +93,35 @@ def test_evidence_exports_are_readable_and_exclude_raw_rows() -> None:
         assert "pairwise_contrasts.csv" in archive.namelist()
 
 
-def test_tables_above_the_old_250000_row_limit_now_load() -> None:
-    rows = 250_001
+def test_local_mode_accepts_input_beyond_every_demo_cap(monkeypatch) -> None:
+    monkeypatch.delenv("SIGNAL_PUBLIC", raising=False)
+    rows = limits.DEMO_MAX_ROWS + 1
     raw = ("arm,outcome\n" + "A,1\nB,2\n" * (rows // 2) + "A,1\n").encode()
     frame, _ = read_table(raw, "large.csv")
     assert len(frame) == rows
-    assert eio.MAX_ROWS >= 5_000_000
-    assert eio.MAX_UPLOAD_BYTES == eio.MAX_UPLOAD_MB * 1024 * 1024 == 1000 * 1024 * 1024
+    width = limits.DEMO_MAX_COLUMNS + 1
+    wide = pd.DataFrame([range(width)], columns=[f"c{i}" for i in range(width)])
+    assert read_table(wide.to_csv(index=False).encode(), "wide.csv")[0].shape[1] == width
+    assert limits.max_upload_bytes() is None and limits.max_rows() is None and limits.max_permutations() is None
 
 
-def test_row_and_byte_limits_name_the_new_caps(monkeypatch) -> None:
+def test_public_demo_enforces_its_caps_with_a_demo_message(monkeypatch) -> None:
+    monkeypatch.setenv("SIGNAL_PUBLIC", "1")
     raw = pd.DataFrame({"arm": ["A", "B"] * 6, "outcome": range(12)}).to_csv(index=False).encode()
-    monkeypatch.setattr(eio, "MAX_ROWS", 10)
-    with pytest.raises(DataProblem, match="at most 10 rows per analysis"):
+    monkeypatch.setattr(limits, "DEMO_MAX_ROWS", 10)
+    with pytest.raises(DataProblem, match="at most 10 rows.*downloadable Experiment Signal app has no built-in limit"):
         read_table(raw, "study.csv")
-    monkeypatch.setattr(eio, "MAX_UPLOAD_BYTES", 8)
-    with pytest.raises(DataProblem, match="1,000 MB local safety limit"):
+    monkeypatch.setattr(limits, "DEMO_MAX_UPLOAD_MB", 0)
+    with pytest.raises(DataProblem, match="files up to 0 MB.*public demo only"):
         read_table(raw, "study.csv")
+    assert limits.max_permutations() == limits.DEMO_MAX_PERMUTATIONS
 
 
-def test_workbooks_and_json_have_their_own_smaller_caps(monkeypatch) -> None:
-    frame = pd.DataFrame({"arm": ["A", "B"], "outcome": [1.0, 2.0]})
-    monkeypatch.setattr(eio, "MAX_XLSX_MB", 0)
-    monkeypatch.setattr(eio, "MAX_JSON_MB", 0)
-    with pytest.raises(DataProblem, match="Excel workbooks above 0 MB.*Save the sheet as CSV"):
-        read_table(dataframe_to_xlsx(frame), "study.xlsx")
-    with pytest.raises(DataProblem, match="JSON files above 0 MB.*Save the table as CSV"):
-        read_table(frame.to_json(orient="records").encode(), "study.json")
-    loaded, _ = read_table(frame.to_csv(index=False).encode(), "study.csv")
-    assert len(loaded) == 2
+def test_running_out_of_memory_is_reported_plainly(monkeypatch) -> None:
+    def no_memory(*args, **kwargs):
+        raise MemoryError
+
+    monkeypatch.setattr(eio.pd, "read_csv", no_memory)
+    with pytest.raises(DataProblem, match="not enough memory on this computer"):
+        read_table(b"arm,outcome\nA,1\n", "study.csv")
+    assert friendly_message(MemoryError()) == limits.MEMORY_MESSAGE

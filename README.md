@@ -57,7 +57,13 @@ The example is deterministic synthetic data for a fictional service. It represen
 
 ## Data contract
 
-Use one row per randomized unit. CSV files up to 1000 MB and 5,000,000 rows are supported locally (500 columns at most); Excel workbooks up to 50 MB and JSON up to 250 MB, because those formats are slower and heavier to parse — save larger tables as CSV. Estimation and the audit use every row; only the optional sharp-null permutation test runs on a seeded random subsample of 100,000 complete rows when there are more, and says so in the app and the evidence pack.
+Use one row per randomized unit. CSV, XLSX, and JSON are supported.
+
+### Data limits
+
+Run on your own computer (standalone, inside a local Signal Hub or on an internal company server), Experiment Signal has **no built-in limit** on file size, rows or columns: the computer's memory is the limit, and running out of memory is reported as a plain message. A 5,000,000-row, 230 MB CSV reads in about 4 s and a 2×2 analysis with a covariate takes about 8 s, at roughly 2.6 GB peak memory. CSV is the fastest format for very large tables; Excel workbooks parse slowly (about 80,000 cells per second). Estimation and the audit always use every row. The one approximation is the optional sharp-null permutation test: above 100,000 complete rows it runs on a seeded random subsample of 100,000 rows (still a valid test of the sharp null) and says so in the app, the warnings and the evidence pack.
+
+The public online demo (`SIGNAL_PUBLIC=1`) protects its shared server with demo limits: 50 MB per file, 250,000 rows, 500 columns and 4,999 randomization permutations. The downloaded app has none of these.
 
 | unit_id | treatment | primary_outcome | baseline_measure |
 |---|---|---:|---:|
@@ -131,7 +137,7 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-Experiment Signal prefers local port `8592` and falls back to another free port on macOS. Both launchers honor `EXPERIMENTSIGNAL_PORT` and `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` (the Streamlit upload limit in MB, default 1000); the macOS launcher also honors `EXPERIMENTSIGNAL_NO_BROWSER`. Setting `EXPERIMENTSIGNAL_DEBUG=1` in the app's environment reveals technical error details on either platform. The app itself never accepts more than 1000 MB, so `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` can lower the limit (for example on a small shared machine) but not raise it.
+Experiment Signal prefers local port `8592` and falls back to another free port on macOS. Both launchers honor `EXPERIMENTSIGNAL_PORT` and `EXPERIMENTSIGNAL_MAX_UPLOAD_MB` (Streamlit's upload transport cap in MB, default 10000, matching `.streamlit/config.toml`; the app adds no limit of its own); the macOS launcher also honors `EXPERIMENTSIGNAL_NO_BROWSER`. Setting `EXPERIMENTSIGNAL_DEBUG=1` in the app's environment reveals technical error details on either platform.
 
 ### Docker
 
@@ -140,7 +146,7 @@ docker build -t experimentsignal .
 docker run --rm -p 8592:8592 experimentsignal
 ```
 
-Then open `http://127.0.0.1:8592`. The container runs as a non-root user and includes a health check. The image sets `STREAMLIT_SERVER_MAX_UPLOAD_SIZE=1000`; pass `-e STREAMLIT_SERVER_MAX_UPLOAD_SIZE=200` (or any smaller value) to `docker run` to lower the upload limit for a hosted copy.
+Then open `http://127.0.0.1:8592`. The container runs as a non-root user and includes a health check. The image sets `STREAMLIT_SERVER_MAX_UPLOAD_SIZE=10000`; pass a smaller value with `-e STREAMLIT_SERVER_MAX_UPLOAD_SIZE=…`, and `-e SIGNAL_PUBLIC=1` to apply the demo limits, when hosting a shared copy.
 
 ## Privacy
 

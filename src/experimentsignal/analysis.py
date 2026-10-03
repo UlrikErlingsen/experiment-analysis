@@ -16,11 +16,14 @@ from statsmodels.stats.power import NormalIndPower, TTestIndPower
 from statsmodels.stats.proportion import proportion_effectsize
 from statsmodels.stats.anova import anova_lm
 
+from . import limits
 from .design import arm_categorical, encode_binary_outcome, ordered_levels
 from .errors import DataProblem
 
 
-# The permutation test costs (rows x permutations); above this many complete rows it uses a seeded subsample.
+# The permutation test costs rows x permutations. Above this many complete rows it runs on a seeded subsample, a
+# visible approximation (recorded in the result, the warnings and the evidence pack), so it stays within seconds.
+# It is not a data limit: estimates, intervals, the audit and term tests always use every row.
 PERMUTATION_MAX_ROWS = 100_000
 
 
@@ -298,6 +301,11 @@ def analyze_experiment(frame: pd.DataFrame, config: AnalysisConfig) -> AnalysisR
     """Estimate adjusted cell means and HC3 pairwise contrasts."""
     if not 0 < config.alpha < 0.5:
         raise DataProblem("Alpha must be between 0 and 0.5.")
+    permutation_cap = limits.max_permutations()
+    if permutation_cap is not None and config.permutations > permutation_cap:
+        raise DataProblem(
+            limits.demo_limit(f"The public demo runs at most {permutation_cap:,} randomization permutations.")
+        )
     work, _ = _prepare(frame, config)
     levels = ordered_levels(work["arm"])
     if config.control_arm not in levels or config.treatment_arm not in levels:

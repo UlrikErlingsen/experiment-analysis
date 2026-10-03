@@ -262,3 +262,21 @@ def test_small_permutation_step_uses_every_row_without_a_note() -> None:
     result = analyze_experiment(two_arm_frame(), config)
     assert result.permutation["rows_used"] == 60
     assert "subsample_note" not in result.permutation
+
+
+def test_public_demo_caps_randomization_permutations(monkeypatch) -> None:
+    from experimentsignal.errors import DataProblem
+
+    config = AnalysisConfig(
+        outcome="outcome",
+        factors=("arm",),
+        covariates=(),
+        control_arm="arm=Control",
+        treatment_arm="arm=Treatment",
+        permutations=9999,
+    )
+    monkeypatch.setenv("SIGNAL_PUBLIC", "1")
+    with pytest.raises(DataProblem, match="at most 4,999 randomization permutations.*public demo only"):
+        analyze_experiment(two_arm_frame(), config)
+    monkeypatch.delenv("SIGNAL_PUBLIC")
+    assert analyze_experiment(two_arm_frame(), config).permutation["permutations"] == 9999

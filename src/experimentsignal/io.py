@@ -15,31 +15,22 @@ import zipfile
 import numpy as np
 import pandas as pd
 
-from . import __version__
+from . import __version__, limits
 from .errors import DataProblem
 
 
-# One cap for the whole app: the launchers, Docker image and .streamlit/config.toml all default to the same 1000 MB.
-MAX_UPLOAD_MB = 1000
-MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
-# Workbooks and JSON build a Python object per cell while parsing, so they keep smaller caps than CSV.
-MAX_XLSX_MB = 50
-MAX_JSON_MB = 250
-MAX_ROWS = 5_000_000
-MAX_COLUMNS = 500
 ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".json"}
 
 
 def _validate_shape(frame: pd.DataFrame) -> pd.DataFrame:
     if frame.empty:
         raise DataProblem("The uploaded table has no data rows.")
-    if len(frame) > MAX_ROWS:
-        raise DataProblem(
-            f"This release accepts at most {MAX_ROWS:,} rows per analysis. "
-            "Filter the file to one experiment population or split it, then upload again."
-        )
-    if len(frame.columns) > MAX_COLUMNS:
-        raise DataProblem(f"This release accepts at most {MAX_COLUMNS:,} columns.")
+    row_cap = limits.max_rows()
+    if row_cap is not None and len(frame) > row_cap:
+        raise DataProblem(limits.demo_limit(f"The public demo accepts at most {row_cap:,} rows per analysis."))
+    column_cap = limits.max_columns()
+    if column_cap is not None and len(frame.columns) > column_cap:
+        raise DataProblem(limits.demo_limit(f"The public demo accepts at most {column_cap:,} columns."))
     names = [str(column).strip() for column in frame.columns]
     if any(not name for name in names):
         raise DataProblem("Every column needs a non-empty name.")
@@ -51,29 +42,27 @@ def _validate_shape(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def read_table(raw: bytes, filename: str) -> tuple[pd.DataFrame, dict[str, str]]:
-    """Read one CSV, XLSX, or JSON table and return source metadata."""
+    """Read one CSV, XLSX, or JSON table and return source metadata.
+
+    Locally there is no size, row or column limit; a public demo (``SIGNAL_PUBLIC=1``) applies the caps in
+    :mod:`experimentsignal.limits`.
+    """
     if not raw:
         raise DataProblem("The uploaded file is empty.")
-    if len(raw) > MAX_UPLOAD_BYTES:
-        raise DataProblem(f"The uploaded file exceeds Experiment Signal's {MAX_UPLOAD_MB:,} MB local safety limit.")
+    byte_cap = limits.max_upload_bytes()
+    if byte_cap is not None and len(raw) > byte_cap:
+        raise DataProblem(
+            limits.demo_limit(f"The public demo accepts files up to {limits.DEMO_MAX_UPLOAD_MB} MB.")
+        )
     extension = Path(filename).suffix.casefold()
     if extension not in ALLOWED_EXTENSIONS:
         raise DataProblem("Use CSV, XLSX, or JSON for experiment data.")
-    if extension == ".xlsx" and len(raw) > MAX_XLSX_MB * 1024 * 1024:
-        raise DataProblem(
-            f"Excel workbooks above {MAX_XLSX_MB} MB are too slow to parse. Save the sheet as CSV, "
-            f"which Experiment Signal reads up to {MAX_UPLOAD_MB:,} MB."
-        )
-    if extension == ".json" and len(raw) > MAX_JSON_MB * 1024 * 1024:
-        raise DataProblem(
-            f"JSON files above {MAX_JSON_MB} MB use too much memory to parse. Save the table as CSV, "
-            f"which Experiment Signal reads up to {MAX_UPLOAD_MB:,} MB."
-        )
     sheet = ""
+    row_cap = limits.max_rows()
     try:
         if extension == ".csv":
-            # Stop parsing one row past the limit instead of building an oversized table first.
-            frame = pd.read_csv(BytesIO(raw), nrows=MAX_ROWS + 1)
+            # On the demo, stop parsing one row past the cap instead of building an oversized table first.
+            frame = pd.read_csv(BytesIO(raw), nrows=None if row_cap is None else row_cap + 1)
         elif extension == ".xlsx":
             book = pd.ExcelFile(BytesIO(raw), engine="openpyxl")
             if not book.sheet_names:
@@ -89,6 +78,8 @@ def read_table(raw: bytes, filename: str) -> tuple[pd.DataFrame, dict[str, str]]
             frame = pd.DataFrame(payload)
     except DataProblem:
         raise
+    except MemoryError as exc:
+        raise DataProblem(limits.MEMORY_MESSAGE) from exc
     except Exception as exc:
         raise DataProblem(f"The {extension[1:].upper()} file could not be read as a rectangular table.") from exc
     return _validate_shape(frame), {

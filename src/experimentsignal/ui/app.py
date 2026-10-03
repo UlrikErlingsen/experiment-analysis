@@ -16,7 +16,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from experimentsignal import __version__
+from experimentsignal import __version__, limits
 from experimentsignal.analysis import (
     AnalysisConfig,
     analyze_experiment,
@@ -531,9 +531,10 @@ def render_audit() -> None:
             "Confidence level", options=[0.90, 0.95, 0.99], value=0.95, key=k("confidence")
         )
     with col2:
+        permutation_cap = limits.max_permutations()
         permutations = st.select_slider(
             "Randomization permutations",
-            options=[0, 999, 4999, 9999],
+            options=[option for option in (0, 999, 4999, 9999) if permutation_cap is None or option <= permutation_cap],
             value=4999,
             key=k("permutations"),
             help="Available only for unadjusted two-arm, one-factor data in this release.",
